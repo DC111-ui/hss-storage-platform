@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Hatfield Storage Solutions (HSS) Demo Infrastructure
+  - EC2 instance for WordPress
+  - RDS MySQL database
+  - S3 bucket for inventory
+  - IAM role for EC2 to access S3
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair for SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+
+  DBUsername:
+    Description: The database admin username
+    Type: String
+    Default: admin
+
+  DBPassword:
+    Description: The database admin password
+    Type: String
+    NoEcho: true
+
+Resources:
+
+  # S3 Bucket for Inventory
+  HSSInventoryBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub hss-inventory-${AWS::AccountId}-${AWS::Region}
+      AccessControl: Private
+
+  # IAM Role for EC2 to access S3
+  EC2S3Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2S3Role
+      Path: "/"
+
+  # Security Group for EC2
+  HSSWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP, HTTPS, SSH
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  # EC2 Instance for WordPress
+  HSSWebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestAmazonLinux2AMI
+      SecurityGroupIds:
+        - !Ref HSSWebSecurityGroup
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      Tags:
+        - Key: Name
+          Value: HSS-WebServer
+
+  # RDS MySQL Database
+  HSSDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: hssdb
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: MySQL
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      PubliclyAccessible: true
+      VPCSecurityGroups:
+        - !GetAtt HSSWebSecurityGroup.GroupId
+
+# Outputs
+Outputs:
+  EC2PublicIP:
+    Description: Public IP of WordPress EC2
+    Value: !GetAtt HSSWebServer.PublicIp
+
+  S3BucketName:
+    Description: S3 bucket for inventory
+    Value: !Ref HSSInventoryBucket
+
+  RDSEndpoint:
+    Description: Endpoint of RDS MySQL
+    Value: !GetAtt HSSDatabase.Endpoint.Address
+
+# Helper Mapping to get Latest Amazon Linux 2 AMI
+Mappings:
+  AWSRegionToAMI:
+    us-east-1:
+      AMI: ami-0c2b8ca1dad447f8a
+    us-east-2:
+      AMI: ami-0b59bfac6be064b78
+    us-west-1:
+      AMI: ami-07d02ee1eeb0c996c
+    us-west-2:
+      AMI: ami-0a887e401f7654935
+
+Conditions:
+  UseMapping: !Not [!Equals [!FindInMap [AWSRegionToAMI, !Ref "AWS::Region", AMI], ""]]
+
+# Parameter to reference AMI
+Parameters:
+  LatestAmazonLinux2AMI:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
