@@ -1,0 +1,3 @@
+EC2 Public IP ->44.197.205.101
+RDS Endpoint ->hss-hatfield-storage-hssdatabase-sifz1nllyczl.codeq4wc6j10.us-east-1.rds.amazonaws.com
+S3 Bucket Name ->hss-inventory-541592468492-us-east-1
