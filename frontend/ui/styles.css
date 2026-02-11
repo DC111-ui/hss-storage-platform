@@ -324,6 +324,12 @@ fieldset {
   background: #f4f9ff;
 }
 
+.api-config {
+  margin-bottom: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+}
+
 .item-list {
   display: grid;
   gap: var(--space-3);
@@ -404,6 +410,12 @@ fieldset {
   font-weight: 700;
 }
 
+.stepper .done {
+  border-color: #6ec0b4;
+  background: #e8f8f5;
+  color: #136658;
+}
+
 .sticky-summary {
   position: sticky;
   top: 84px;
@@ -415,6 +427,14 @@ fieldset {
 .hint {
   margin: 0;
   color: var(--color-muted);
+}
+
+.hint[data-tone="success"] {
+  color: #116d58;
+}
+
+.hint[data-tone="warning"] {
+  color: #9a5a00;
 }
 
 @media (max-width: 960px) {
