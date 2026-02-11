@@ -29,13 +29,25 @@ const state = {
   apiBase: localStorage.getItem("hss-api-base") || "http://localhost:8081",
 };
 
+function byId(id) {
+  return document.getElementById(id);
+}
+
+function readText(id, fallback = "") {
+  return byId(id)?.value || fallback;
+}
+
 function value(id) {
-  const input = document.getElementById(id);
+  const input = byId(id);
   return Number.parseInt(input?.value || "0", 10) || 0;
 }
 
 function showMessage(targetId, message, tone = "neutral") {
-  const node = document.getElementById(targetId);
+  const node = byId(targetId);
+  if (!node) {
+    return;
+  }
+
   node.textContent = message;
   node.dataset.tone = tone;
 }
@@ -82,26 +94,44 @@ function calculatePricing() {
 }
 
 function updateEstimate() {
+  if (!byId("summary-total")) {
+    return;
+  }
+
   const { duration, monthlySubtotal, total, itemsCount, photosCount, otherCount } = calculatePricing();
 
-  document.getElementById("estimate").textContent = currency.format(total);
-  document.getElementById("monthly-subtotal").textContent = currency.format(monthlySubtotal);
-  document.getElementById("duration-label").textContent = `${duration} months`;
+  const estimate = byId("estimate");
+  const monthlySubtotalNode = byId("monthly-subtotal");
+  const durationLabel = byId("duration-label");
 
-  document.getElementById("items-summary").textContent = `${itemsCount}`;
-  document.getElementById("photo-summary").textContent = `${photosCount}`;
-  document.getElementById("summary-monthly").textContent = currency.format(monthlySubtotal);
-  document.getElementById("summary-duration").textContent = `${duration} months`;
-  document.getElementById("summary-total").textContent = currency.format(total);
+  if (estimate) {
+    estimate.textContent = currency.format(total);
+  }
+  if (monthlySubtotalNode) {
+    monthlySubtotalNode.textContent = currency.format(monthlySubtotal);
+  }
+  if (durationLabel) {
+    durationLabel.textContent = `${duration} months`;
+  }
 
-  const otherRow = document.getElementById("other-summary-row");
+  byId("items-summary").textContent = `${itemsCount}`;
+  byId("photo-summary").textContent = `${photosCount}`;
+  byId("summary-monthly").textContent = currency.format(monthlySubtotal);
+  byId("summary-duration").textContent = `${duration} months`;
+  byId("summary-total").textContent = currency.format(total);
+
+  const otherRow = byId("other-summary-row");
   otherRow.classList.toggle("is-hidden", otherCount === 0);
-  document.getElementById("other-summary").textContent = `${otherCount}`;
+  byId("other-summary").textContent = `${otherCount}`;
 
   renderThumbnailPreview();
 }
 
 function setupAuthTabs() {
+  if (!document.querySelector("[data-auth-tab]")) {
+    return;
+  }
+
   const tabs = document.querySelectorAll("[data-auth-tab]");
   const panels = document.querySelectorAll("[data-auth-panel]");
 
@@ -124,7 +154,10 @@ function setupAuthTabs() {
 }
 
 function renderItems() {
-  const itemList = document.getElementById("item-list");
+  const itemList = byId("item-list");
+  if (!itemList) {
+    return;
+  }
 
   itemList.innerHTML = state.items
     .map(
@@ -169,7 +202,11 @@ function renderItems() {
 }
 
 function renderThumbnailPreview() {
-  const container = document.getElementById("thumbnail-preview");
+  const container = byId("thumbnail-preview");
+  if (!container) {
+    return;
+  }
+
   const thumbItems = state.items.filter((item) => item.thumbnail);
 
   if (thumbItems.length === 0) {
@@ -245,11 +282,18 @@ function bindItemCardEvents() {
 }
 
 function setReviewStatus(text) {
-  document.getElementById("review-status").textContent = text;
+  const reviewStatus = byId("review-status");
+  if (reviewStatus) {
+    reviewStatus.textContent = text;
+  }
 }
 
 function updateStepper() {
   const steps = document.querySelectorAll(".stepper li");
+  if (steps.length === 0) {
+    return;
+  }
+
   const currentIndex = Math.max(statusSteps.indexOf(state.status), 0);
   steps.forEach((step, index) => {
     step.classList.toggle("active", index === currentIndex);
@@ -276,23 +320,26 @@ async function apiRequest(path, options = {}) {
 function getBookingPayload() {
   const pricing = calculatePricing();
   return {
-    customer_name: document.getElementById("signup-name").value || "Demo Student",
-    email: document.getElementById("signup-email").value || document.getElementById("signin-email").value || "demo@hss.co.za",
-    pickup_date: document.getElementById("pickup-date").value,
-    pickup_window: document.getElementById("pickup-window").value,
-    address: document.getElementById("address").value,
+    customer_name: readText("signup-name", "Demo Student"),
+    email: readText("signup-email") || readText("signin-email") || "demo@hss.co.za",
+    pickup_date: readText("pickup-date"),
+    pickup_window: readText("pickup-window"),
+    address: readText("address"),
     items: state.items.map((item) => ({ type: item.type, name: item.name, s3Key: item.s3Key })),
     pricing,
   };
 }
 
 function setupForms() {
-  const approveOrder = document.getElementById("approve-order");
-  const proceedPayment = document.getElementById("proceed-payment");
+  const signInForm = byId("signin-form");
+  const signUpForm = byId("signup-form");
+  const bookingForm = byId("booking-form");
+  const approveOrder = byId("approve-order");
+  const proceedPayment = byId("proceed-payment");
 
-  document.getElementById("signin-form").addEventListener("submit", async (event) => {
+  signInForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const email = document.getElementById("signin-email").value;
+    const email = readText("signin-email", "demo@hss.co.za");
 
     try {
       const login = await apiRequest("/api/v1/auth/login", {
@@ -305,12 +352,12 @@ function setupForms() {
     }
   });
 
-  document.getElementById("signup-form").addEventListener("submit", (event) => {
+  signUpForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     showMessage("auth-status", "Account staged locally. Continue to booking submission.", "success");
   });
 
-  document.getElementById("booking-form").addEventListener("submit", async (event) => {
+  bookingForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (state.items.length === 0) {
@@ -342,7 +389,7 @@ function setupForms() {
     }
   });
 
-  approveOrder.addEventListener("click", async () => {
+  approveOrder?.addEventListener("click", async () => {
     if (!state.status || !["submitted", "approved"].includes(state.status)) {
       return;
     }
@@ -365,7 +412,7 @@ function setupForms() {
     showMessage("form-status", "Staff approval complete. Payment unlocked.", "success");
   });
 
-  proceedPayment.addEventListener("click", async () => {
+  proceedPayment?.addEventListener("click", async () => {
     if (state.status !== "approved") {
       showMessage("form-status", "Payment is locked until staff approval is complete.", "warning");
       return;
@@ -375,7 +422,7 @@ function setupForms() {
       try {
         const payment = await apiRequest(`/api/v1/bookings/${state.bookingId}/payment`, {
           method: "POST",
-          body: JSON.stringify({ method: document.getElementById("payment-method").value || "card" }),
+          body: JSON.stringify({ method: readText("payment-method", "card") || "card" }),
         });
         state.status = "paid";
         setReviewStatus(`Paid (${payment.payment_reference})`);
@@ -396,15 +443,19 @@ function setupForms() {
 }
 
 function setupEstimateRefresh() {
-  document.getElementById("duration").addEventListener("input", updateEstimate);
-  document.getElementById("estimate-btn").addEventListener("click", updateEstimate);
+  if (!byId("duration")) {
+    return;
+  }
 
-  document.getElementById("add-item").addEventListener("click", () => {
+  byId("duration").addEventListener("input", updateEstimate);
+  byId("estimate-btn").addEventListener("click", updateEstimate);
+
+  byId("add-item").addEventListener("click", () => {
     state.items.push(createItem());
     renderItems();
   });
 
-  const apiBaseInput = document.getElementById("api-base");
+  const apiBaseInput = byId("api-base");
   apiBaseInput.value = state.apiBase;
   apiBaseInput.addEventListener("change", () => {
     state.apiBase = apiBaseInput.value.trim().replace(/\/$/, "");
@@ -416,8 +467,11 @@ function setupEstimateRefresh() {
 setupAuthTabs();
 setupForms();
 setupEstimateRefresh();
-state.items.push(createItem("bed"), createItem("fridge"), createItem("box"));
-renderItems();
-updateEstimate();
-setReviewStatus("Draft");
-updateStepper();
+
+if (byId("item-list")) {
+  state.items.push(createItem("bed"), createItem("fridge"), createItem("box"));
+  renderItems();
+  updateEstimate();
+  setReviewStatus("Draft");
+  updateStepper();
+}

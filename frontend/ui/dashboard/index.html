@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HSS Storage | Dashboard</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="top-nav">
+      <div class="page-shell nav-inner">
+        <a href="/" class="brand">HSS Storage</a>
+        <nav aria-label="Primary">
+          <a href="/auth/">Login</a>
+          <a href="/dashboard/" aria-current="page">Dashboard</a>
+          <a href="/booking/">New booking</a>
+          <a href="/operations/">Operations</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="section-space" aria-label="Customer dashboard preview">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Dashboard</p>
+            <h1>Hi Aaliyah — Winter break storage 2026</h1>
+            <p class="hint">All your storage milestones, upcoming dates, and balance details in one place.</p>
+          </div>
+          <div class="action-row">
+            <a href="/booking/" class="btn btn-primary">Create booking</a>
+            <button type="button" class="btn btn-secondary">Track existing booking</button>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel">
+            <h2>Booking status timeline</h2>
+            <ol class="timeline" aria-label="Booking status timeline">
+              <li class="done">Requested</li>
+              <li class="current">Awaiting staff review</li>
+              <li>Reviewed and approved</li>
+              <li>Collected</li>
+              <li>In storage</li>
+              <li>Returned</li>
+            </ol>
+          </article>
+
+          <article class="panel">
+            <h2>Upcoming dates</h2>
+            <ul class="simple-list">
+              <li><strong>Pickup window:</strong> 02 Jul, 10:00–13:00</li>
+              <li><strong>Storage period:</strong> Jul 2026 – Nov 2026</li>
+              <li><strong>Return window:</strong> 22 Nov, 09:00–12:00</li>
+            </ul>
+          </article>
+
+          <article class="panel">
+            <h2>Cost summary</h2>
+            <ul class="simple-list">
+              <li>Monthly subtotal: <strong id="monthly-subtotal">R 0.00</strong></li>
+              <li>Duration multiplier: <strong id="duration-label">3 months</strong></li>
+              <li>Handling fee: <strong>R 350.00</strong></li>
+              <li>Total estimate: <strong id="estimate">R 0.00</strong></li>
+            </ul>
+          </article>
+
+          <article class="panel">
+            <h2>Stored items overview</h2>
+            <p class="hint">Each stored item keeps a thumbnail and an S3 photo reference.</p>
+            <div class="photo-row" aria-label="Stored item thumbnails">
+              <span class="photo-pill">Bed frame</span>
+              <span class="photo-pill">Mini fridge</span>
+              <span class="photo-pill">2 x boxes</span>
+              <span class="photo-pill">Other: Study lamp</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="../app.js"></script>
+  </body>
+</html>

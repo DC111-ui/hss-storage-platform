@@ -9,289 +9,47 @@
   <body>
     <header class="top-nav">
       <div class="page-shell nav-inner">
-        <span class="brand">HSS Storage</span>
+        <a href="/" class="brand">HSS Storage</a>
         <nav aria-label="Primary">
-          <a href="#auth">Login</a>
-          <a href="#dashboard">Dashboard</a>
-          <a href="#booking">New booking</a>
+          <a href="/auth/">Login</a>
+          <a href="/dashboard/">Dashboard</a>
+          <a href="/booking/">New booking</a>
+          <a href="/operations/">Operations</a>
         </nav>
       </div>
     </header>
 
-    <main class="page-shell">
-      <section id="auth" class="auth-layout section-space" aria-label="Login and account creation">
-        <article class="panel trust-panel">
-          <p class="eyebrow">Trusted student storage in Hatfield</p>
-          <h1>A calm, reliable storage journey for students and parents.</h1>
-          <p>
-            Book in minutes, track every milestone, and get clear pickup and return timelines for every season.
-          </p>
-
-          <div class="trust-cards" role="list" aria-label="Trust highlights">
-            <div class="mini-card" role="listitem">
-              <h2>How HSS works</h2>
-              <p>Request pickup, pack your essentials, and monitor your booking from collection to return.</p>
-            </div>
-            <div class="mini-card" role="listitem">
-              <h2>Family-friendly updates</h2>
-              <p>Share booking confirmation IDs and status updates with parents in a few taps.</p>
-            </div>
-            <div class="mini-card" role="listitem">
-              <h2>Safety first</h2>
-              <p>Inspected storage units, verified crew check-ins, and timestamped item photos.</p>
-            </div>
-          </div>
-        </article>
-
-        <section class="panel auth-card" aria-label="Authentication form">
-          <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
-            <button type="button" role="tab" aria-selected="true" class="tab active" data-auth-tab="signin" id="tab-signin">
-              Sign in
-            </button>
-            <button type="button" role="tab" aria-selected="false" class="tab" data-auth-tab="signup" id="tab-signup">
-              Create account
-            </button>
-          </div>
-
-          <div class="auth-panel" data-auth-panel="signin" aria-labelledby="tab-signin">
-            <h2>Welcome back</h2>
-            <p>Sign in to manage your seasonal bookings and track status in real time.</p>
-            <form class="stacked-form" id="signin-form">
-              <label for="signin-email">Email</label>
-              <input id="signin-email" type="email" autocomplete="email" required />
-
-              <label for="signin-password">Password</label>
-              <input id="signin-password" type="password" autocomplete="current-password" required />
-
-              <button type="submit" class="btn btn-primary">Sign in</button>
-            </form>
-          </div>
-
-          <div class="auth-panel is-hidden" data-auth-panel="signup" aria-labelledby="tab-signup">
-            <h2>Create your account</h2>
-            <p>Next step after signup: create your first booking with a guided 4-step flow.</p>
-            <form class="stacked-form" id="signup-form">
-              <label for="signup-name">Full name</label>
-              <input id="signup-name" type="text" autocomplete="name" required />
-
-              <label for="signup-email">Email</label>
-              <input id="signup-email" type="email" autocomplete="email" required />
-
-              <label for="signup-password">Password</label>
-              <input id="signup-password" type="password" autocomplete="new-password" required />
-
-              <button type="submit" class="btn btn-primary">Create account</button>
-            </form>
-          </div>
-
-          <div class="social-actions" aria-label="Alternative sign in options">
-            <button type="button" class="btn btn-secondary">Continue with Google</button>
-            <button type="button" class="btn btn-secondary">Continue with Apple</button>
-            <button type="button" class="btn btn-link">Email me a magic link instead</button>
-          </div>
-          <p class="hint" id="auth-status" aria-live="polite"></p>
-        </section>
+    <main class="page-shell section-space">
+      <section class="panel trust-panel">
+        <p class="eyebrow">Production-ready multi-page experience</p>
+        <h1>Student storage flows now run across dedicated routes.</h1>
+        <p>Use clear URLs for each stage of the customer journey, with standalone pages for auth, dashboard, booking, and operations.</p>
+        <div class="action-row" style="margin-top: 1rem">
+          <a href="/auth/" class="btn btn-primary">Go to login</a>
+          <a href="/booking/" class="btn btn-secondary">Start booking</a>
+        </div>
       </section>
 
-      <section id="dashboard" class="section-space" aria-label="Customer dashboard preview">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Dashboard</p>
-            <h2>Hi Aaliyah — Winter break storage 2026</h2>
-            <p class="hint">All your storage milestones, upcoming dates, and balance details in one place.</p>
-          </div>
-          <div class="action-row">
-            <button type="button" class="btn btn-primary">Create booking</button>
-            <button type="button" class="btn btn-secondary">Track existing booking</button>
-          </div>
-        </div>
-
+      <section class="section-space">
         <div class="dashboard-grid">
           <article class="panel">
-            <h3>Booking status timeline</h3>
-            <ol class="timeline" aria-label="Booking status timeline">
-              <li class="done">Requested</li>
-              <li class="current">Awaiting staff review</li>
-              <li>Reviewed and approved</li>
-              <li>Collected</li>
-              <li>In storage</li>
-              <li>Returned</li>
-            </ol>
-          </article>
-
-          <article class="panel">
-            <h3>Upcoming dates</h3>
-            <ul class="simple-list">
-              <li><strong>Pickup window:</strong> 02 Jul, 10:00–13:00</li>
-              <li><strong>Storage period:</strong> Jul 2026 – Nov 2026</li>
-              <li><strong>Return window:</strong> 22 Nov, 09:00–12:00</li>
-            </ul>
-          </article>
-
-          <article class="panel">
-            <h3>Cost summary</h3>
-            <ul class="simple-list">
-              <li>Monthly subtotal: <strong id="monthly-subtotal">R 0.00</strong></li>
-              <li>Duration multiplier: <strong id="duration-label">3 months</strong></li>
-              <li>Handling fee: <strong id="handling-fee">R 350.00</strong></li>
-              <li>Total estimate: <strong id="estimate">R 0.00</strong></li>
-            </ul>
-          </article>
-
-          <article class="panel">
-            <h3>Stored items overview</h3>
-            <p class="hint">Each stored item keeps a thumbnail and an S3 photo reference.</p>
-            <div class="photo-row" aria-label="Stored item thumbnails">
-              <span class="photo-pill">Bed frame</span>
-              <span class="photo-pill">Mini fridge</span>
-              <span class="photo-pill">2 x boxes</span>
-              <span class="photo-pill">Other: Study lamp</span>
-            </div>
-          </article>
-        </div>
-
-        <article class="panel empty-state">
-          <h3>New here? Start your first booking in 3 steps</h3>
-          <p>Choose items, schedule pickup, and confirm payment — then track every status update automatically.</p>
-          <button type="button" class="btn btn-primary">Start first booking</button>
-        </article>
-      </section>
-
-      <section id="booking" class="section-space" aria-label="Booking wizard and checkout">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Booking and checkout</p>
-            <h2>5-step booking flow with transparent pricing and staff review</h2>
-            <p class="hint">Commercial readiness: backend-connected submission, auditable status transitions, and payment gating.</p>
-          </div>
-        </div>
-
-        <div class="booking-layout">
-          <section class="panel">
-            <div class="api-config">
-              <label for="api-base">Backend API base URL</label>
-              <input id="api-base" type="url" placeholder="http://localhost:8081" />
-              <p id="api-status" class="hint" aria-live="polite">Set this to your running backend to persist bookings.</p>
-            </div>
-
-            <ol class="stepper" aria-label="Checkout progress">
-              <li class="active">1. Items</li>
-              <li>2. Schedule</li>
-              <li>3. Submit</li>
-              <li>4. Staff review</li>
-              <li>5. Pay</li>
-            </ol>
-
-            <form id="booking-form" class="stacked-form">
-              <fieldset>
-                <legend>Items</legend>
-                <p class="hint">Add every item individually, including a catch-all <em>Other item</em> type. Upload a photo for each item (stored to S3 at pickup).</p>
-                <div id="item-list" class="item-list" aria-live="polite"></div>
-
-                <button id="add-item" type="button" class="btn btn-secondary">Add another item</button>
-
-                <label for="duration">Storage duration (months)</label>
-                <input id="duration" type="number" min="1" max="12" value="3" />
-              </fieldset>
-
-              <fieldset>
-                <legend>Schedule</legend>
-                <label for="pickup-date">Preferred pickup date</label>
-                <input id="pickup-date" name="pickup-date" type="date" required />
-
-                <label for="pickup-window">Pickup window</label>
-                <select id="pickup-window" required>
-                  <option value="">Select a window</option>
-                  <option>08:00 – 11:00</option>
-                  <option>10:00 – 13:00</option>
-                  <option>13:00 – 16:00</option>
-                </select>
-
-                <label for="address">Pickup address</label>
-                <textarea id="address" name="address" rows="3" required></textarea>
-              </fieldset>
-
-              <fieldset>
-                <legend>Payment</legend>
-                <label for="payment-method">Payment method</label>
-                <select id="payment-method" required>
-                  <option value="">Choose payment method</option>
-                  <option>Card</option>
-                  <option>EFT</option>
-                  <option>Saved card ending in 1042</option>
-                </select>
-
-                <details>
-                  <summary>Have a promo code?</summary>
-                  <label for="promo-code">Promo code</label>
-                  <input id="promo-code" type="text" placeholder="Enter promo code" />
-                </details>
-              </fieldset>
-
-              <div class="action-row">
-                <button id="estimate-btn" type="button" class="btn btn-secondary">Update estimate</button>
-                <button type="submit" class="btn btn-primary">Submit for staff review</button>
-                <button id="approve-order" type="button" class="btn btn-secondary" disabled>Mark as staff approved (demo)</button>
-                <button id="proceed-payment" type="button" class="btn btn-primary" disabled>Proceed to payment</button>
-              </div>
-              <p id="form-status" class="hint" aria-live="polite"></p>
-            </form>
-          </section>
-
-          <aside class="panel sticky-summary" aria-label="Order summary">
-            <h3>Order summary</h3>
-            <ul class="simple-list">
-              <li>Total items: <strong id="items-summary">3</strong></li>
-              <li>Items with photos: <strong id="photo-summary">0</strong></li>
-              <li id="other-summary-row" class="is-hidden">Other items: <strong id="other-summary">0</strong></li>
-              <li>Monthly subtotal: <strong id="summary-monthly">R 0.00</strong></li>
-              <li>Duration: <strong id="summary-duration">3 months</strong></li>
-              <li>Handling + pickup fee: <strong>R 350.00</strong></li>
-              <li>Total due now: <strong id="summary-total">R 0.00</strong></li>
-              <li>Review status: <strong id="review-status">Not submitted</strong></li>
-            </ul>
-            <p class="hint">Payment stays locked until a staff member reviews and approves your order.</p>
-            <div id="thumbnail-preview" class="thumbnail-preview" aria-label="Uploaded item thumbnails"></div>
-          </aside>
-        </div>
-      </section>
-
-      <section id="operations" class="section-space" aria-label="Operational readiness and assurance">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Operational readiness</p>
-            <h2>Commercial-grade controls for confidence and auditability</h2>
-          </div>
-        </div>
-        <div class="dashboard-grid">
-          <article class="panel">
-            <h3>Security</h3>
-            <ul class="simple-list">
-              <li>Photo references generated using deterministic S3 object prefixes.</li>
-              <li>Login flow designed for token-based API sessions.</li>
-              <li>Backend endpoints CORS-enabled for separate web/API deployments.</li>
-            </ul>
+            <h2>Authentication</h2>
+            <p>Route: <code>/auth/</code></p>
           </article>
           <article class="panel">
-            <h3>Reliability</h3>
-            <ul class="simple-list">
-              <li>Submission gracefully degrades to local demo flow if API is offline.</li>
-              <li>Payment stays locked until approved status is applied.</li>
-              <li>Status timeline maps directly to backend lifecycle states.</li>
-            </ul>
+            <h2>Customer dashboard</h2>
+            <p>Route: <code>/dashboard/</code></p>
           </article>
           <article class="panel">
-            <h3>Audit trail</h3>
-            <ul class="simple-list">
-              <li>Booking confirmations include immutable IDs.</li>
-              <li>Review statuses are user-visible and stateful across stages.</li>
-              <li>Backend persists event logs for every transition.</li>
-            </ul>
+            <h2>Booking and checkout</h2>
+            <p>Route: <code>/booking/</code></p>
+          </article>
+          <article class="panel">
+            <h2>Operational readiness</h2>
+            <p>Route: <code>/operations/</code></p>
           </article>
         </div>
       </section>
     </main>
-
-    <script src="app.js"></script>
   </body>
 </html>
