@@ -1,126 +1,69 @@
 # Hatfield Storage Solutions (HSS) – Storage Booking Platform
 
-## **Project Overview**
+## Project Overview
 
-Hatfield Storage Solutions (HSS) is a seasonal student storage service based in Hatfield Pretoria. This is a student area where thousands of university students reside. At the end of the academic year, a lot of student accomodations require students to move all their belongins from their appartments/rooms. They often need convinient, secure storage for items such as beds, fridges, desks, and boxes. HSS provides pickup, secure storage in third-party units, and return of items. Pricing is calculated based on item type, quantity, and storage duration.
+Hatfield Storage Solutions (HSS) is a seasonal student storage service based in Hatfield, Pretoria. At the end of each academic year, students need short-term storage for room contents (beds, fridges, desks, boxes). This repository now targets a **custom web UI** instead of WordPress, with AWS infrastructure for hosting the app, storing booking data, and keeping inventory media.
 
-This project demonstrates a cloud-based, WordPress-powered web platform that enables students to request storage, manage bookings, and track their items. Administrators can manage storage units, bookings, and inventory efficiently. The project is built as a **demo and portfolio piece**, using **AWS Free Tier services**.
+## Product Direction (WordPress Removed)
 
----
+The project is being migrated away from WordPress/WooCommerce toward a custom-built interface and API-driven workflow.
 
-## **Objectives**
+### Current custom UI prototype
 
-* **Customer Features**
+A lightweight frontend prototype is available in `ui/` and includes:
+- A storage price estimator (item quantities + duration)
+- A booking request form UI
+- Client-side estimate feedback to support backend API integration
 
-  * Book storage for items
-  * Calculate pricing based on item type and storage duration
-  * View booking status and stored items
-  * QR codes for booking confirmation
-* **Admin Features**
+Run it locally:
 
-  * Manage storage units and seasonal availability
-  * Track bookings and inventory
-  * View QR codes linked to stored items
-* **Infrastructure & Deployment**
-
-  * Provisioned using **AWS CloudFormation** (EC2, RDS, S3, IAM)
-  * Demonstrates Infrastructure as Code principles
-  * Fully deployable on AWS Free Tier for demo purposes
-* **Documentation & Reporting**
-
-  * Architecture diagrams
-  * Demo screenshots
-  * Project scope and workflow documentation
-
----
-
-## **Project Scope**
-
-**In-Scope**
-
-* WordPress-based web platform with WooCommerce for booking simulation
-* Dynamic pricing calculations per item and duration
-* Customer login and booking dashboard
-* Admin management interface for storage units
-* QR code generation for bookings (demo)
-* Deployment using AWS CloudFormation
-
-**Out of Scope**
-
-* Production-level security (HTTPS, private subnets)
-* Real payment processing (uses WooCommerce sandbox mode)
-* Auto-scaling or high-availability architecture
-* Integration with third-party logistics APIs
-
-**Assumptions**
-
-* Storage units are rented from third-party providers
-* Maximum of **5 storage units per season**
-* Project is for demonstration and portfolio purposes only
-
----
-
-## **Architecture**
-
-The platform architecture is simple, cloud-friendly, and **demo-focused**:
-
-**Components:**
-
-* **EC2 t3.micro** – Hosts WordPress and WooCommerce
-* **Amazon RDS MySQL** – Stores booking and user data
-* **Amazon S3** – Stores inventory photos and documents
-* **IAM Roles** – Grants EC2 secure access to S3
-* **CloudFormation** – Infrastructure as Code for reproducible deployment
-
-**High-Level Flow:**
-
-```
-User → Internet → EC2 (WordPress) → RDS (MySQL)
-                          ↓
-                         S3 (Inventory Photos)
+```bash
+cd ui
+python3 -m http.server 8080
+# open http://localhost:8080
 ```
 
-* Customers access the site via browser
-* EC2 handles application logic
-* RDS stores structured data
-* S3 stores inventory media, accessed securely via IAM role
+## Objectives
 
----
+### Customer features
+- Book storage pickups for seasonal periods
+- Calculate pricing by item type and storage duration
+- Track booking status and stored inventory (planned backend integration)
 
-## **Deliverables**
+### Admin features
+- Manage storage unit capacity and seasonal availability (planned)
+- View booking requests and inventory details (planned)
 
-1. **CloudFormation Template** – Deploys infrastructure on AWS Free Tier
-2. **WordPress Demo Site** – Customer and admin portals
-3. **Custom Plugin Skeleton** – Handles bookings, storage units, and QR codes
-4. **Architecture Diagram** – Visual representation of the system
-5. **Documentation & Screenshots** – Scope, workflow, and portfolio evidence
+### Infrastructure
+- Provision infrastructure with AWS CloudFormation
+- Use EC2 for the custom web app/API runtime
+- Use RDS MySQL for booking and user data
+- Use S3 for inventory photos/documents
 
----
+## Architecture
 
+High-level architecture remains cloud-friendly and demo-focused:
 
-## **Future Enhancements**
+```text
+User → Internet → EC2 (Custom UI + API) → RDS (MySQL)
+                               ↓
+                              S3 (Inventory Photos)
+```
 
-* Production-ready deployment with HTTPS, private subnets, and scaling
-* Real payment gateway integration
-* SMS or email notifications for bookings
-* Capacity-based storage optimization
-* Multi-environment CloudFormation stacks
+## Deliverables
 
----
+1. CloudFormation template for AWS demo infrastructure
+2. Custom UI starter in `ui/`
+3. Documentation for migration from WordPress to custom app architecture
 
-## **Author Notes**
+## Future Enhancements
 
-This project was designed as a **demonstration and portfolio project**. It highlights:
+- Build REST/GraphQL backend for booking persistence
+- Add authentication and role-based admin dashboards
+- Implement notifications (email/SMS)
+- Harden production deployment (HTTPS, private networking, backups)
+- Add CI/CD for automated deployments
 
-* Cloud architecture knowledge (AWS services + IaC)
-* WordPress application customization
-* Business logic implementation for a real-world problem
-* Documentation and portfolio readiness
-
----
-
-## **License**
+## License
 
 For educational and portfolio purposes only.
-
-

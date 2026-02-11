@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HSS Storage Platform</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <h1>Hatfield Storage Solutions</h1>
+      <p>Book student storage pickups and estimate your seasonal costs in minutes.</p>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Price estimator</h2>
+        <p class="hint">Select items and storage period to estimate your total.</p>
+
+        <label for="beds">Beds</label>
+        <input id="beds" type="number" min="0" value="0" />
+
+        <label for="fridges">Fridges</label>
+        <input id="fridges" type="number" min="0" value="0" />
+
+        <label for="boxes">Boxes</label>
+        <input id="boxes" type="number" min="0" value="0" />
+
+        <label for="duration">Storage duration (months)</label>
+        <input id="duration" type="number" min="1" max="12" value="3" />
+
+        <button id="estimate-btn" type="button">Calculate estimate</button>
+
+        <div class="total" aria-live="polite">
+          Estimated total: <strong id="estimate">R 0.00</strong>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Create booking request</h2>
+        <p class="hint">Submit a request and our team will confirm pickup availability.</p>
+
+        <form id="booking-form">
+          <label for="name">Full name</label>
+          <input id="name" name="name" required />
+
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required />
+
+          <label for="pickup-date">Preferred pickup date</label>
+          <input id="pickup-date" name="pickup-date" type="date" required />
+
+          <label for="address">Pickup address</label>
+          <textarea id="address" name="address" rows="3" required></textarea>
+
+          <button type="submit">Submit request</button>
+          <p id="form-status" class="hint" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
