@@ -111,9 +111,10 @@
             <h3>Booking status timeline</h3>
             <ol class="timeline" aria-label="Booking status timeline">
               <li class="done">Requested</li>
-              <li class="done">Confirmed</li>
-              <li class="done">Collected</li>
-              <li class="current">In storage</li>
+              <li class="current">Awaiting staff review</li>
+              <li>Reviewed and approved</li>
+              <li>Collected</li>
+              <li>In storage</li>
               <li>Returned</li>
             </ol>
           </article>
@@ -139,11 +140,12 @@
 
           <article class="panel">
             <h3>Stored items overview</h3>
-            <p class="hint">4 active items with latest photos</p>
+            <p class="hint">Each stored item keeps a thumbnail and an S3 photo reference.</p>
             <div class="photo-row" aria-label="Stored item thumbnails">
               <span class="photo-pill">Bed frame</span>
               <span class="photo-pill">Mini fridge</span>
               <span class="photo-pill">2 x boxes</span>
+              <span class="photo-pill">Other: Study lamp</span>
             </div>
           </article>
         </div>
@@ -159,7 +161,7 @@
         <div class="section-header">
           <div>
             <p class="eyebrow">Booking and checkout</p>
-            <h2>4-step booking flow with transparent pricing</h2>
+            <h2>5-step booking flow with transparent pricing and staff review</h2>
           </div>
         </div>
 
@@ -168,21 +170,18 @@
             <ol class="stepper" aria-label="Checkout progress">
               <li class="active">1. Items</li>
               <li>2. Schedule</li>
-              <li>3. Review</li>
-              <li>4. Pay</li>
+              <li>3. Submit</li>
+              <li>4. Staff review</li>
+              <li>5. Pay</li>
             </ol>
 
             <form id="booking-form" class="stacked-form">
               <fieldset>
                 <legend>Items</legend>
-                <label for="beds">Beds</label>
-                <input id="beds" type="number" min="0" value="1" />
+                <p class="hint">Add every item individually, including a catch-all <em>Other item</em> type. Upload a photo for each item (stored to S3 at pickup).</p>
+                <div id="item-list" class="item-list" aria-live="polite"></div>
 
-                <label for="fridges">Fridges</label>
-                <input id="fridges" type="number" min="0" value="1" />
-
-                <label for="boxes">Boxes</label>
-                <input id="boxes" type="number" min="0" value="2" />
+                <button id="add-item" type="button" class="btn btn-secondary">Add another item</button>
 
                 <label for="duration">Storage duration (months)</label>
                 <input id="duration" type="number" min="1" max="12" value="3" />
@@ -224,7 +223,9 @@
 
               <div class="action-row">
                 <button id="estimate-btn" type="button" class="btn btn-secondary">Update estimate</button>
-                <button type="submit" class="btn btn-primary">Confirm booking</button>
+                <button type="submit" class="btn btn-primary">Submit for staff review</button>
+                <button id="approve-order" type="button" class="btn btn-secondary" disabled>Mark as staff approved (demo)</button>
+                <button id="proceed-payment" type="button" class="btn btn-primary" disabled>Proceed to payment</button>
               </div>
               <p id="form-status" class="hint" aria-live="polite"></p>
             </form>
@@ -233,15 +234,17 @@
           <aside class="panel sticky-summary" aria-label="Order summary">
             <h3>Order summary</h3>
             <ul class="simple-list">
-              <li>Beds: <strong id="beds-summary">1</strong></li>
-              <li>Fridges: <strong id="fridges-summary">1</strong></li>
-              <li>Boxes: <strong id="boxes-summary">2</strong></li>
+              <li>Total items: <strong id="items-summary">3</strong></li>
+              <li>Items with photos: <strong id="photo-summary">0</strong></li>
+              <li id="other-summary-row" class="is-hidden">Other items: <strong id="other-summary">0</strong></li>
               <li>Monthly subtotal: <strong id="summary-monthly">R 0.00</strong></li>
               <li>Duration: <strong id="summary-duration">3 months</strong></li>
               <li>Handling + pickup fee: <strong>R 350.00</strong></li>
               <li>Total due now: <strong id="summary-total">R 0.00</strong></li>
+              <li>Review status: <strong id="review-status">Not submitted</strong></li>
             </ul>
-            <p class="hint">After payment, you will receive a confirmation ID and status timeline.</p>
+            <p class="hint">Payment stays locked until a staff member reviews and approves your order.</p>
+            <div id="thumbnail-preview" class="thumbnail-preview" aria-label="Uploaded item thumbnails"></div>
           </aside>
         </div>
       </section>
