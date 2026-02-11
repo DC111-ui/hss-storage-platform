@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   Hatfield Storage Solutions (HSS) Demo Infrastructure
-  - EC2 instance for WordPress
+  - EC2 instance for custom web UI/API workload
   - RDS MySQL database
-  - S3 bucket for inventory
+  - S3 bucket for inventory assets
   - IAM role for EC2 to access S3
 
 Parameters:
@@ -67,12 +67,11 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
 
-  # IAM Role for EC2 to access S3
   EC2S3Role:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
@@ -102,9 +101,8 @@ Resources:
     Properties:
       Roles:
         - !Ref EC2S3Role
-      Path: "/"
+      Path: /
 
-  # Security Group for EC2
   HSSWebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -158,9 +156,8 @@ Resources:
         HttpEndpoint: enabled
       Tags:
         - Key: Name
-          Value: HSS-WebServer
+          Value: HSS-CustomAppServer
 
-  # RDS MySQL Database
   HSSDatabase:
     Type: AWS::RDS::DBInstance
     DeletionPolicy: Snapshot
@@ -183,7 +180,7 @@ Resources:
 
 Outputs:
   EC2PublicIP:
-    Description: Public IP of WordPress EC2
+    Description: Public IP of custom app EC2 host
     Value: !GetAtt HSSWebServer.PublicIp
 
   S3BucketName:
