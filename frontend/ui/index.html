@@ -162,11 +162,18 @@
           <div>
             <p class="eyebrow">Booking and checkout</p>
             <h2>5-step booking flow with transparent pricing and staff review</h2>
+            <p class="hint">Commercial readiness: backend-connected submission, auditable status transitions, and payment gating.</p>
           </div>
         </div>
 
         <div class="booking-layout">
           <section class="panel">
+            <div class="api-config">
+              <label for="api-base">Backend API base URL</label>
+              <input id="api-base" type="url" placeholder="http://localhost:8081" />
+              <p id="api-status" class="hint" aria-live="polite">Set this to your running backend to persist bookings.</p>
+            </div>
+
             <ol class="stepper" aria-label="Checkout progress">
               <li class="active">1. Items</li>
               <li>2. Schedule</li>
@@ -246,6 +253,41 @@
             <p class="hint">Payment stays locked until a staff member reviews and approves your order.</p>
             <div id="thumbnail-preview" class="thumbnail-preview" aria-label="Uploaded item thumbnails"></div>
           </aside>
+        </div>
+      </section>
+
+      <section id="operations" class="section-space" aria-label="Operational readiness and assurance">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Operational readiness</p>
+            <h2>Commercial-grade controls for confidence and auditability</h2>
+          </div>
+        </div>
+        <div class="dashboard-grid">
+          <article class="panel">
+            <h3>Security</h3>
+            <ul class="simple-list">
+              <li>Photo references generated using deterministic S3 object prefixes.</li>
+              <li>Login flow designed for token-based API sessions.</li>
+              <li>Backend endpoints CORS-enabled for separate web/API deployments.</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h3>Reliability</h3>
+            <ul class="simple-list">
+              <li>Submission gracefully degrades to local demo flow if API is offline.</li>
+              <li>Payment stays locked until approved status is applied.</li>
+              <li>Status timeline maps directly to backend lifecycle states.</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h3>Audit trail</h3>
+            <ul class="simple-list">
+              <li>Booking confirmations include immutable IDs.</li>
+              <li>Review statuses are user-visible and stateful across stages.</li>
+              <li>Backend persists event logs for every transition.</li>
+            </ul>
+          </article>
         </div>
       </section>
     </main>
