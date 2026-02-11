@@ -1,90 +1,60 @@
-# Hatfield Storage Solutions (HSS) – Storage Booking Platform
+# Hatfield Storage Solutions (HSS) Platform
 
-## Project Overview
+This repository now provides a **full-stack demo** of a commercial-grade student storage booking platform:
 
-Hatfield Storage Solutions (HSS) is a seasonal student storage service based in Hatfield, Pretoria. At the end of each academic year, students need short-term storage for room contents (beds, fridges, desks, boxes). This repository now targets a **custom web UI** instead of WordPress, with AWS infrastructure for hosting the app, storing booking data, and keeping inventory media.
+- `frontend/ui`: polished browser UI with pricing, booking workflow, and backend integration.
+- `backend/api`: API service with persistence, lifecycle controls, and audit logs.
+- `backend/cloudformation`: AWS infrastructure templates and notes.
 
-## Product Direction (WordPress Removed)
+## Repository layout
 
-The project is being migrated away from WordPress/WooCommerce toward a custom-built interface and API-driven workflow.
+- `frontend/ui/` — static web app prototype with dashboard + 5-step booking flow.
+- `backend/api/` — Python REST API (stdlib only, SQLite-backed).
+- `backend/cloudformation/` — CloudFormation template aligned to best-practice defaults.
+- `docs/` — implementation and audit documentation.
 
-### Current custom UI prototype
+## Run locally
 
-A lightweight frontend prototype is available in `ui/` and includes:
-- A storage price estimator (item quantities + duration)
-- A booking request form UI
-- Client-side estimate feedback to support backend API integration
-
-Run it locally:
+### 1) Start backend API
 
 ```bash
-cd ui
-python3 -m http.server 8080
-# open http://localhost:8080
+cd backend/api
+python3 server.py
 ```
 
-## Objectives
+Backend default URL: `http://localhost:8081`
 
-### Customer features
-- Book storage pickups for seasonal periods
-- Calculate pricing by item type and storage duration
-- Track booking status and stored inventory (planned backend integration)
+### 2) Start frontend
 
-### Admin features
-- Manage storage unit capacity and seasonal availability (planned)
-- View booking requests and inventory details (planned)
+```bash
+cd frontend/ui
+python3 -m http.server 8080
+```
 
-### Infrastructure
-- Provision infrastructure with AWS CloudFormation
-- Use EC2 for the custom web app/API runtime
-- Use RDS MySQL for booking and user data
-- Use S3 for inventory photos/documents
+Open: `http://localhost:8080`
 
-## Architecture
+In the booking section, set **Backend API base URL** to `http://localhost:8081`.
 
-High-level architecture remains cloud-friendly and demo-focused:
+## Commercial-grade aspects delivered
 
+### Frontend
+- Multi-section, responsive UX designed around trust, transparency, and conversion.
+- Structured booking flow with staged status controls (submit → approve → pay).
+- Dynamic pricing with item-level modeling and photo preview support.
+- Backend-aware flow with graceful local fallback when API is unavailable.
 
-## **AWS Best Practices Applied in This Repository**
+### Backend
+- Versioned REST endpoints (`/api/v1/*`) for auth and booking lifecycle.
+- Persistent storage with normalized booking/item tables.
+- Audit logging of operational events for traceability.
+- Status-gated payment endpoint to enforce process control.
 
-The CloudFormation stack now includes foundational AWS best-practice controls while still staying demo-friendly:
+## Auditing guides
 
-* **Least privilege IAM**: EC2 gets scoped S3 permissions (not account-wide S3 full access)
-* **S3 hardening**: block public access, enable default encryption (SSE-S3), and enable versioning
-* **Network segmentation**: dedicated security groups for web and database tiers
-* **Restricted DB exposure**: RDS is non-public and only reachable from the EC2 security group
-* **Platform hardening**: EC2 enforces IMDSv2 tokens
-* **Data protection and recovery**: RDS encryption at rest, 7-day backups, and snapshot on stack deletion
-* **Safer operations**: SSH ingress is parameterized with `AllowedSSHCidr` to avoid always-open admin access
-
-These controls are intentionally lightweight so the project remains practical for learning and portfolio demonstrations.
-
----
-
-## **Future Enhancements**
-
-* Production-ready deployment with HTTPS, private subnets, and scaling
-* Real payment gateway integration
-* SMS or email notifications for bookings
-* Capacity-based storage optimization
-* Multi-environment CloudFormation stacks
-
----
-
-## Deliverables
-
-1. CloudFormation template for AWS demo infrastructure
-2. Custom UI starter in `ui/`
-3. Documentation for migration from WordPress to custom app architecture
-
-## Future Enhancements
-
-- Build REST/GraphQL backend for booking persistence
-- Add authentication and role-based admin dashboards
-- Implement notifications (email/SMS)
-- Harden production deployment (HTTPS, private networking, backups)
-- Add CI/CD for automated deployments
+- Backend technical audit guide: `backend/api/README.md`
+- Program-level audit notes: `docs/README.md`
+- Infrastructure controls: `backend/cloudformation/README.md`
 
 ## License
 
-For educational and portfolio purposes only.
+For educational and portfolio use.

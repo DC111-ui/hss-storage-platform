@@ -20,15 +20,24 @@ const currency = new Intl.NumberFormat("en-ZA", {
   currency: "ZAR",
 });
 
+const statusSteps = ["submitted", "approved", "paid"];
+
 const state = {
   items: [],
-  orderSubmitted: false,
-  staffApproved: false,
+  bookingId: "",
+  status: "draft",
+  apiBase: localStorage.getItem("hss-api-base") || "http://localhost:8081",
 };
 
 function value(id) {
   const input = document.getElementById(id);
   return Number.parseInt(input?.value || "0", 10) || 0;
+}
+
+function showMessage(targetId, message, tone = "neutral") {
+  const node = document.getElementById(targetId);
+  node.textContent = message;
+  node.dataset.tone = tone;
 }
 
 function createItem(type = "box") {
@@ -64,6 +73,7 @@ function calculatePricing() {
   return {
     duration,
     monthlySubtotal,
+    handlingFee: PRICING.handlingFee,
     total,
     itemsCount: state.items.length,
     photosCount: state.items.filter((item) => Boolean(item.photo)).length,
@@ -163,7 +173,7 @@ function renderThumbnailPreview() {
   const thumbItems = state.items.filter((item) => item.thumbnail);
 
   if (thumbItems.length === 0) {
-    container.innerHTML = "<p class=\"hint\">Item thumbnails appear here once photos are uploaded.</p>";
+    container.innerHTML = '<p class="hint">Item thumbnails appear here once photos are uploaded.</p>';
     return;
   }
 
@@ -238,65 +248,150 @@ function setReviewStatus(text) {
   document.getElementById("review-status").textContent = text;
 }
 
+function updateStepper() {
+  const steps = document.querySelectorAll(".stepper li");
+  const currentIndex = Math.max(statusSteps.indexOf(state.status), 0);
+  steps.forEach((step, index) => {
+    step.classList.toggle("active", index === currentIndex);
+    step.classList.toggle("done", index < currentIndex);
+  });
+}
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`${state.apiBase}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `API request failed (${response.status})`);
+  }
+  return data;
+}
+
+function getBookingPayload() {
+  const pricing = calculatePricing();
+  return {
+    customer_name: document.getElementById("signup-name").value || "Demo Student",
+    email: document.getElementById("signup-email").value || document.getElementById("signin-email").value || "demo@hss.co.za",
+    pickup_date: document.getElementById("pickup-date").value,
+    pickup_window: document.getElementById("pickup-window").value,
+    address: document.getElementById("address").value,
+    items: state.items.map((item) => ({ type: item.type, name: item.name, s3Key: item.s3Key })),
+    pricing,
+  };
+}
+
 function setupForms() {
-  const authStatus = document.getElementById("auth-status");
-  const formStatus = document.getElementById("form-status");
   const approveOrder = document.getElementById("approve-order");
   const proceedPayment = document.getElementById("proceed-payment");
 
-  document.getElementById("signin-form").addEventListener("submit", (event) => {
+  document.getElementById("signin-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    authStatus.textContent =
-      "Signed in (demo). Next: check your dashboard or create a new booking.";
+    const email = document.getElementById("signin-email").value;
+
+    try {
+      const login = await apiRequest("/api/v1/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      showMessage("auth-status", `Signed in. Session token: ${login.token}`, "success");
+    } catch (error) {
+      showMessage("auth-status", `Demo sign in fallback: ${error.message}`, "warning");
+    }
   });
 
   document.getElementById("signup-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    authStatus.textContent =
-      "Account created (demo). Next: create your first booking using the guided checkout below.";
+    showMessage("auth-status", "Account staged locally. Continue to booking submission.", "success");
   });
 
-  document.getElementById("booking-form").addEventListener("submit", (event) => {
+  document.getElementById("booking-form").addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (state.items.length === 0) {
-      formStatus.textContent = "Please add at least one item before submitting.";
+      showMessage("form-status", "Please add at least one item before submitting.", "warning");
       return;
     }
 
-    state.orderSubmitted = true;
-    state.staffApproved = false;
+    const payload = getBookingPayload();
+    try {
+      const booking = await apiRequest("/api/v1/bookings", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
-    approveOrder.disabled = false;
-    proceedPayment.disabled = true;
-    setReviewStatus("Submitted - awaiting staff review");
-
-    formStatus.textContent =
-      "Order submitted (demo). A staff member must review item details and photos before payment can continue.";
+      state.bookingId = booking.booking_id;
+      state.status = "submitted";
+      approveOrder.disabled = false;
+      proceedPayment.disabled = true;
+      setReviewStatus(`Submitted (${booking.booking_id})`);
+      updateStepper();
+      showMessage("form-status", "Booking submitted to backend and awaiting staff review.", "success");
+    } catch (error) {
+      state.status = "submitted";
+      approveOrder.disabled = false;
+      proceedPayment.disabled = true;
+      setReviewStatus("Submitted (local fallback)");
+      updateStepper();
+      showMessage("form-status", `Backend unavailable; local flow active: ${error.message}`, "warning");
+    }
   });
 
-  approveOrder.addEventListener("click", () => {
-    if (!state.orderSubmitted) {
+  approveOrder.addEventListener("click", async () => {
+    if (!state.status || !["submitted", "approved"].includes(state.status)) {
       return;
     }
 
-    state.staffApproved = true;
+    if (state.bookingId) {
+      try {
+        await apiRequest(`/api/v1/bookings/${state.bookingId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "approved" }),
+        });
+      } catch (error) {
+        showMessage("form-status", `Could not update backend status: ${error.message}`, "warning");
+      }
+    }
+
+    state.status = "approved";
     setReviewStatus("Approved by staff");
-    formStatus.textContent =
-      "Staff review complete (demo). You can now proceed to payment.";
     proceedPayment.disabled = false;
+    updateStepper();
+    showMessage("form-status", "Staff approval complete. Payment unlocked.", "success");
   });
 
-  proceedPayment.addEventListener("click", () => {
-    const { total } = calculatePricing();
-
-    if (!state.staffApproved) {
-      formStatus.textContent = "Payment is locked until staff approval is complete.";
+  proceedPayment.addEventListener("click", async () => {
+    if (state.status !== "approved") {
+      showMessage("form-status", "Payment is locked until staff approval is complete.", "warning");
       return;
     }
 
+    if (state.bookingId) {
+      try {
+        const payment = await apiRequest(`/api/v1/bookings/${state.bookingId}/payment`, {
+          method: "POST",
+          body: JSON.stringify({ method: document.getElementById("payment-method").value || "card" }),
+        });
+        state.status = "paid";
+        setReviewStatus(`Paid (${payment.payment_reference})`);
+        updateStepper();
+        showMessage("form-status", `Payment captured. Reference: ${payment.payment_reference}.`, "success");
+        return;
+      } catch (error) {
+        showMessage("form-status", `Payment fallback mode: ${error.message}`, "warning");
+      }
+    }
+
+    state.status = "paid";
     const confirmationId = `HSS-${Math.floor(Math.random() * 900000 + 100000)}`;
-    formStatus.textContent = `Booking confirmed (demo). Confirmation ID: ${confirmationId}. Amount due now: ${currency.format(total)}.`;
+    setReviewStatus(`Paid (${confirmationId})`);
+    updateStepper();
+    showMessage("form-status", `Booking confirmed locally. Confirmation ID: ${confirmationId}`, "success");
   });
 }
 
@@ -308,6 +403,14 @@ function setupEstimateRefresh() {
     state.items.push(createItem());
     renderItems();
   });
+
+  const apiBaseInput = document.getElementById("api-base");
+  apiBaseInput.value = state.apiBase;
+  apiBaseInput.addEventListener("change", () => {
+    state.apiBase = apiBaseInput.value.trim().replace(/\/$/, "");
+    localStorage.setItem("hss-api-base", state.apiBase);
+    showMessage("api-status", `API base updated to ${state.apiBase}`, "success");
+  });
 }
 
 setupAuthTabs();
@@ -316,4 +419,5 @@ setupEstimateRefresh();
 state.items.push(createItem("bed"), createItem("fridge"), createItem("box"));
 renderItems();
 updateEstimate();
-setReviewStatus("Not submitted");
+setReviewStatus("Draft");
+updateStepper();
