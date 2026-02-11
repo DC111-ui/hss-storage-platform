@@ -2,7 +2,7 @@
 
 ## **Project Overview**
 
-Hatfield Storage Solutions (HSS) is a seasonal student storage service based in Hatfield Pretoria. This is a stydent area where thousands of university students reside. At the end of the academic year, a lot of student accomodations require students to move all their belongins from their appartments/rooms. They often need secure storage for items such as beds, fridges, desks, and boxes. HSS provides pickup, secure storage in third-party units, and return of items. Pricing is calculated based on item type, quantity, and storage duration.
+Hatfield Storage Solutions (HSS) is a seasonal student storage service based in Hatfield Pretoria. This is a student area where thousands of university students reside. At the end of the academic year, a lot of student accomodations require students to move all their belongins from their appartments/rooms. They often need convinient, secure storage for items such as beds, fridges, desks, and boxes. HSS provides pickup, secure storage in third-party units, and return of items. Pricing is calculated based on item type, quantity, and storage duration.
 
 This project demonstrates a cloud-based, WordPress-powered web platform that enables students to request storage, manage bookings, and track their items. Administrators can manage storage units, bookings, and inventory efficiently. The project is built as a **demo and portfolio piece**, using **AWS Free Tier services**.
 
@@ -97,30 +97,6 @@ User → Internet → EC2 (WordPress) → RDS (MySQL)
 
 ---
 
-## **Deployment Instructions (Demo)**
-
-1. Deploy the **CloudFormation stack** in AWS
-2. Access the EC2 public IP to complete WordPress setup
-3. Install required WordPress plugins:
-
-   * WooCommerce (sandbox)
-   * Advanced Custom Fields
-   * Custom Post Type UI
-   * Optional QR code plugin
-4. Configure demo products, storage units, and pricing rules
-5. Use the site for simulated booking flows
-
----
-
-## **Success Criteria**
-
-* Fully functional demo of booking flow and admin management
-* Infrastructure provisioned with **AWS CloudFormation**
-* Free-tier compatible deployment
-* Clear documentation, screenshots, and architecture diagram
-* Easily understandable and presentable in a **portfolio or interview**
-
----
 
 ## **Future Enhancements**
 
