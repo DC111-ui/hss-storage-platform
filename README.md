@@ -44,11 +44,32 @@ python3 -m http.server 8080
 
 High-level architecture remains cloud-friendly and demo-focused:
 
-```text
-User → Internet → EC2 (Custom UI + API) → RDS (MySQL)
-                               ↓
-                              S3 (Inventory Photos)
-```
+
+## **AWS Best Practices Applied in This Repository**
+
+The CloudFormation stack now includes foundational AWS best-practice controls while still staying demo-friendly:
+
+* **Least privilege IAM**: EC2 gets scoped S3 permissions (not account-wide S3 full access)
+* **S3 hardening**: block public access, enable default encryption (SSE-S3), and enable versioning
+* **Network segmentation**: dedicated security groups for web and database tiers
+* **Restricted DB exposure**: RDS is non-public and only reachable from the EC2 security group
+* **Platform hardening**: EC2 enforces IMDSv2 tokens
+* **Data protection and recovery**: RDS encryption at rest, 7-day backups, and snapshot on stack deletion
+* **Safer operations**: SSH ingress is parameterized with `AllowedSSHCidr` to avoid always-open admin access
+
+These controls are intentionally lightweight so the project remains practical for learning and portfolio demonstrations.
+
+---
+
+## **Future Enhancements**
+
+* Production-ready deployment with HTTPS, private subnets, and scaling
+* Real payment gateway integration
+* SMS or email notifications for bookings
+* Capacity-based storage optimization
+* Multi-environment CloudFormation stacks
+
+---
 
 ## Deliverables
 

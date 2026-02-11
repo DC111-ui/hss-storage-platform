@@ -7,6 +7,18 @@ Description: >
   - IAM role for EC2 to access S3
 
 Parameters:
+  VpcId:
+    Description: VPC where HSS resources will be deployed
+    Type: AWS::EC2::VPC::Id
+
+  WebSubnetId:
+    Description: Public subnet ID for the EC2 web server
+    Type: AWS::EC2::Subnet::Id
+
+  DBSubnetIds:
+    Description: Private or isolated subnet IDs for RDS (recommended at least two AZs)
+    Type: List<AWS::EC2::Subnet::Id>
+
   KeyName:
     Description: Name of an existing EC2 KeyPair for SSH access
     Type: AWS::EC2::KeyPair::KeyName
@@ -15,22 +27,45 @@ Parameters:
     Description: The database admin username
     Type: String
     Default: admin
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_]{0,15}$'
+    ConstraintDescription: Must start with a letter and contain up to 16 alphanumeric/underscore characters.
 
   DBPassword:
     Description: The database admin password
     Type: String
     NoEcho: true
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: '^[a-zA-Z0-9@#$%^&*()_+\-=]{8,41}$'
+    ConstraintDescription: Must be 8-41 chars and use supported RDS password characters.
 
   LatestAmazonLinux2AMI:
+    Description: SSM parameter for latest Amazon Linux 2 AMI
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
 
+  AllowedSSHCidr:
+    Description: CIDR range allowed to SSH into EC2 (avoid 0.0.0.0/0 in production)
+    Type: String
+    Default: 0.0.0.0/0
+
 Resources:
+  # S3 Bucket for Inventory
   HSSInventoryBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub hss-inventory-${AWS::AccountId}-${AWS::Region}
-      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
 
   EC2S3Role:
     Type: AWS::IAM::Role
@@ -42,9 +77,24 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-      Path: /
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Path: "/"
+      Policies:
+        - PolicyName: HSSInventoryBucketAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AllowListBucket
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt HSSInventoryBucket.Arn
+              - Sid: AllowObjectOperations
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub ${HSSInventoryBucket.Arn}/*
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -56,12 +106,13 @@ Resources:
   HSSWebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP, HTTPS, SSH
+      GroupDescription: Allow HTTP, HTTPS, and SSH
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref AllowedSSHCidr
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
@@ -71,21 +122,46 @@ Resources:
           ToPort: 443
           CidrIp: 0.0.0.0/0
 
+  # Security Group for RDS
+  HSSDatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow MySQL access only from web server security group
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !GetAtt HSSWebSecurityGroup.GroupId
+
+  HSSDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for HSS MySQL database
+      SubnetIds: !Ref DBSubnetIds
+
+  # EC2 Instance for WordPress
   HSSWebServer:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.micro
       KeyName: !Ref KeyName
       ImageId: !Ref LatestAmazonLinux2AMI
+      SubnetId: !Ref WebSubnetId
       SecurityGroupIds:
-        - !Ref HSSWebSecurityGroup
+        - !GetAtt HSSWebSecurityGroup.GroupId
       IamInstanceProfile: !Ref EC2InstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
       Tags:
         - Key: Name
           Value: HSS-CustomAppServer
 
   HSSDatabase:
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
     Properties:
       DBName: hssdb
       AllocatedStorage: 20
@@ -93,9 +169,14 @@ Resources:
       Engine: MySQL
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
-      PubliclyAccessible: true
+      DBSubnetGroupName: !Ref HSSDBSubnetGroup
+      PubliclyAccessible: false
+      MultiAZ: false
+      StorageEncrypted: true
+      BackupRetentionPeriod: 7
+      AutoMinorVersionUpgrade: true
       VPCSecurityGroups:
-        - !GetAtt HSSWebSecurityGroup.GroupId
+        - !GetAtt HSSDatabaseSecurityGroup.GroupId
 
 Outputs:
   EC2PublicIP:

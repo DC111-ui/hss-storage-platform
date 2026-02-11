@@ -1,26 +1,32 @@
-# CloudFormation stack (custom UI architecture)
+# CloudFormation Stack Notes
 
-This stack provisions baseline infrastructure for the HSS custom application deployment:
+The `hss-stack.yaml` template has been aligned with practical AWS best-practice defaults while still supporting a demo deployment.
 
-- EC2 instance for hosting the custom UI/API runtime
-- RDS MySQL for persistent booking data
-- S3 bucket for inventory images/documents
-- IAM role and instance profile for EC2 access to S3
+## Best-practice controls included
 
-## Deploy
+- Least-privilege IAM policy for EC2 access to only the inventory S3 bucket
+- S3 bucket public access block, encryption at rest, and versioning
+- Separate security groups for the web tier and database tier
+- RDS restricted to web-tier access only and set to non-public
+- RDS backups + encrypted storage + snapshot retention on replacement/deletion
+- EC2 IMDSv2 enforcement (`HttpTokens: required`)
+- Parameterized SSH CIDR (`AllowedSSHCidr`) so SSH can be scoped
+- Explicit VPC and subnet parameters to avoid implicit default networking
+
+## Required parameters
+
+- `VpcId`: target VPC ID
+- `WebSubnetId`: subnet for the EC2 web server
+- `DBSubnetIds`: subnets for RDS DB subnet group (provide at least 2 in different AZs)
+- `KeyName`: existing EC2 key pair
+- `DBUsername` and `DBPassword`
+
+## Validation
+
+You can lint the template locally with:
 
 ```bash
-aws cloudformation deploy \
-  --template-file hss-stack.yaml \
-  --stack-name hss-storage-platform \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    KeyName=<your-keypair> \
-    DBUsername=admin \
-    DBPassword=<secure-password>
+cfn-lint -i W1011 -- cloudformation/hss-stack.yaml
 ```
 
-## Notes
-
-- This is a demo stack and is intentionally simple.
-- Security hardening (private subnets, TLS termination, least privilege IAM, backups) should be added before production use.
+`W1011` is ignored in this command because secrets are currently passed as parameters for demo simplicity. In production, prefer dynamic references to AWS Secrets Manager or SSM SecureString.
