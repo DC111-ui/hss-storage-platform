@@ -7,55 +7,243 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <h1>Hatfield Storage Solutions</h1>
-      <p>Book student storage pickups and estimate your seasonal costs in minutes.</p>
+    <header class="top-nav">
+      <div class="page-shell nav-inner">
+        <span class="brand">HSS Storage</span>
+        <nav aria-label="Primary">
+          <a href="#auth">Login</a>
+          <a href="#dashboard">Dashboard</a>
+          <a href="#booking">New booking</a>
+        </nav>
+      </div>
     </header>
 
-    <main class="layout">
-      <section class="card">
-        <h2>Price estimator</h2>
-        <p class="hint">Select items and storage period to estimate your total.</p>
+    <main class="page-shell">
+      <section id="auth" class="auth-layout section-space" aria-label="Login and account creation">
+        <article class="panel trust-panel">
+          <p class="eyebrow">Trusted student storage in Hatfield</p>
+          <h1>A calm, reliable storage journey for students and parents.</h1>
+          <p>
+            Book in minutes, track every milestone, and get clear pickup and return timelines for every season.
+          </p>
 
-        <label for="beds">Beds</label>
-        <input id="beds" type="number" min="0" value="0" />
+          <div class="trust-cards" role="list" aria-label="Trust highlights">
+            <div class="mini-card" role="listitem">
+              <h2>How HSS works</h2>
+              <p>Request pickup, pack your essentials, and monitor your booking from collection to return.</p>
+            </div>
+            <div class="mini-card" role="listitem">
+              <h2>Family-friendly updates</h2>
+              <p>Share booking confirmation IDs and status updates with parents in a few taps.</p>
+            </div>
+            <div class="mini-card" role="listitem">
+              <h2>Safety first</h2>
+              <p>Inspected storage units, verified crew check-ins, and timestamped item photos.</p>
+            </div>
+          </div>
+        </article>
 
-        <label for="fridges">Fridges</label>
-        <input id="fridges" type="number" min="0" value="0" />
+        <section class="panel auth-card" aria-label="Authentication form">
+          <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+            <button type="button" role="tab" aria-selected="true" class="tab active" data-auth-tab="signin" id="tab-signin">
+              Sign in
+            </button>
+            <button type="button" role="tab" aria-selected="false" class="tab" data-auth-tab="signup" id="tab-signup">
+              Create account
+            </button>
+          </div>
 
-        <label for="boxes">Boxes</label>
-        <input id="boxes" type="number" min="0" value="0" />
+          <div class="auth-panel" data-auth-panel="signin" aria-labelledby="tab-signin">
+            <h2>Welcome back</h2>
+            <p>Sign in to manage your seasonal bookings and track status in real time.</p>
+            <form class="stacked-form" id="signin-form">
+              <label for="signin-email">Email</label>
+              <input id="signin-email" type="email" autocomplete="email" required />
 
-        <label for="duration">Storage duration (months)</label>
-        <input id="duration" type="number" min="1" max="12" value="3" />
+              <label for="signin-password">Password</label>
+              <input id="signin-password" type="password" autocomplete="current-password" required />
 
-        <button id="estimate-btn" type="button">Calculate estimate</button>
+              <button type="submit" class="btn btn-primary">Sign in</button>
+            </form>
+          </div>
 
-        <div class="total" aria-live="polite">
-          Estimated total: <strong id="estimate">R 0.00</strong>
-        </div>
+          <div class="auth-panel is-hidden" data-auth-panel="signup" aria-labelledby="tab-signup">
+            <h2>Create your account</h2>
+            <p>Next step after signup: create your first booking with a guided 4-step flow.</p>
+            <form class="stacked-form" id="signup-form">
+              <label for="signup-name">Full name</label>
+              <input id="signup-name" type="text" autocomplete="name" required />
+
+              <label for="signup-email">Email</label>
+              <input id="signup-email" type="email" autocomplete="email" required />
+
+              <label for="signup-password">Password</label>
+              <input id="signup-password" type="password" autocomplete="new-password" required />
+
+              <button type="submit" class="btn btn-primary">Create account</button>
+            </form>
+          </div>
+
+          <div class="social-actions" aria-label="Alternative sign in options">
+            <button type="button" class="btn btn-secondary">Continue with Google</button>
+            <button type="button" class="btn btn-secondary">Continue with Apple</button>
+            <button type="button" class="btn btn-link">Email me a magic link instead</button>
+          </div>
+          <p class="hint" id="auth-status" aria-live="polite"></p>
+        </section>
       </section>
 
-      <section class="card">
-        <h2>Create booking request</h2>
-        <p class="hint">Submit a request and our team will confirm pickup availability.</p>
+      <section id="dashboard" class="section-space" aria-label="Customer dashboard preview">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Dashboard</p>
+            <h2>Hi Aaliyah — Winter break storage 2026</h2>
+            <p class="hint">All your storage milestones, upcoming dates, and balance details in one place.</p>
+          </div>
+          <div class="action-row">
+            <button type="button" class="btn btn-primary">Create booking</button>
+            <button type="button" class="btn btn-secondary">Track existing booking</button>
+          </div>
+        </div>
 
-        <form id="booking-form">
-          <label for="name">Full name</label>
-          <input id="name" name="name" required />
+        <div class="dashboard-grid">
+          <article class="panel">
+            <h3>Booking status timeline</h3>
+            <ol class="timeline" aria-label="Booking status timeline">
+              <li class="done">Requested</li>
+              <li class="done">Confirmed</li>
+              <li class="done">Collected</li>
+              <li class="current">In storage</li>
+              <li>Returned</li>
+            </ol>
+          </article>
 
-          <label for="email">Email</label>
-          <input id="email" name="email" type="email" required />
+          <article class="panel">
+            <h3>Upcoming dates</h3>
+            <ul class="simple-list">
+              <li><strong>Pickup window:</strong> 02 Jul, 10:00–13:00</li>
+              <li><strong>Storage period:</strong> Jul 2026 – Nov 2026</li>
+              <li><strong>Return window:</strong> 22 Nov, 09:00–12:00</li>
+            </ul>
+          </article>
 
-          <label for="pickup-date">Preferred pickup date</label>
-          <input id="pickup-date" name="pickup-date" type="date" required />
+          <article class="panel">
+            <h3>Cost summary</h3>
+            <ul class="simple-list">
+              <li>Monthly subtotal: <strong id="monthly-subtotal">R 0.00</strong></li>
+              <li>Duration multiplier: <strong id="duration-label">3 months</strong></li>
+              <li>Handling fee: <strong id="handling-fee">R 350.00</strong></li>
+              <li>Total estimate: <strong id="estimate">R 0.00</strong></li>
+            </ul>
+          </article>
 
-          <label for="address">Pickup address</label>
-          <textarea id="address" name="address" rows="3" required></textarea>
+          <article class="panel">
+            <h3>Stored items overview</h3>
+            <p class="hint">4 active items with latest photos</p>
+            <div class="photo-row" aria-label="Stored item thumbnails">
+              <span class="photo-pill">Bed frame</span>
+              <span class="photo-pill">Mini fridge</span>
+              <span class="photo-pill">2 x boxes</span>
+            </div>
+          </article>
+        </div>
 
-          <button type="submit">Submit request</button>
-          <p id="form-status" class="hint" aria-live="polite"></p>
-        </form>
+        <article class="panel empty-state">
+          <h3>New here? Start your first booking in 3 steps</h3>
+          <p>Choose items, schedule pickup, and confirm payment — then track every status update automatically.</p>
+          <button type="button" class="btn btn-primary">Start first booking</button>
+        </article>
+      </section>
+
+      <section id="booking" class="section-space" aria-label="Booking wizard and checkout">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Booking and checkout</p>
+            <h2>4-step booking flow with transparent pricing</h2>
+          </div>
+        </div>
+
+        <div class="booking-layout">
+          <section class="panel">
+            <ol class="stepper" aria-label="Checkout progress">
+              <li class="active">1. Items</li>
+              <li>2. Schedule</li>
+              <li>3. Review</li>
+              <li>4. Pay</li>
+            </ol>
+
+            <form id="booking-form" class="stacked-form">
+              <fieldset>
+                <legend>Items</legend>
+                <label for="beds">Beds</label>
+                <input id="beds" type="number" min="0" value="1" />
+
+                <label for="fridges">Fridges</label>
+                <input id="fridges" type="number" min="0" value="1" />
+
+                <label for="boxes">Boxes</label>
+                <input id="boxes" type="number" min="0" value="2" />
+
+                <label for="duration">Storage duration (months)</label>
+                <input id="duration" type="number" min="1" max="12" value="3" />
+              </fieldset>
+
+              <fieldset>
+                <legend>Schedule</legend>
+                <label for="pickup-date">Preferred pickup date</label>
+                <input id="pickup-date" name="pickup-date" type="date" required />
+
+                <label for="pickup-window">Pickup window</label>
+                <select id="pickup-window" required>
+                  <option value="">Select a window</option>
+                  <option>08:00 – 11:00</option>
+                  <option>10:00 – 13:00</option>
+                  <option>13:00 – 16:00</option>
+                </select>
+
+                <label for="address">Pickup address</label>
+                <textarea id="address" name="address" rows="3" required></textarea>
+              </fieldset>
+
+              <fieldset>
+                <legend>Payment</legend>
+                <label for="payment-method">Payment method</label>
+                <select id="payment-method" required>
+                  <option value="">Choose payment method</option>
+                  <option>Card</option>
+                  <option>EFT</option>
+                  <option>Saved card ending in 1042</option>
+                </select>
+
+                <details>
+                  <summary>Have a promo code?</summary>
+                  <label for="promo-code">Promo code</label>
+                  <input id="promo-code" type="text" placeholder="Enter promo code" />
+                </details>
+              </fieldset>
+
+              <div class="action-row">
+                <button id="estimate-btn" type="button" class="btn btn-secondary">Update estimate</button>
+                <button type="submit" class="btn btn-primary">Confirm booking</button>
+              </div>
+              <p id="form-status" class="hint" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <aside class="panel sticky-summary" aria-label="Order summary">
+            <h3>Order summary</h3>
+            <ul class="simple-list">
+              <li>Beds: <strong id="beds-summary">1</strong></li>
+              <li>Fridges: <strong id="fridges-summary">1</strong></li>
+              <li>Boxes: <strong id="boxes-summary">2</strong></li>
+              <li>Monthly subtotal: <strong id="summary-monthly">R 0.00</strong></li>
+              <li>Duration: <strong id="summary-duration">3 months</strong></li>
+              <li>Handling + pickup fee: <strong>R 350.00</strong></li>
+              <li>Total due now: <strong id="summary-total">R 0.00</strong></li>
+            </ul>
+            <p class="hint">After payment, you will receive a confirmation ID and status timeline.</p>
+          </aside>
+        </div>
       </section>
     </main>
 
