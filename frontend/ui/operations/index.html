@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HSS Storage | Operations</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="top-nav">
+      <div class="page-shell nav-inner">
+        <a href="/" class="brand">HSS Storage</a>
+        <nav aria-label="Primary">
+          <a href="/auth/">Login</a>
+          <a href="/dashboard/">Dashboard</a>
+          <a href="/booking/">New booking</a>
+          <a href="/operations/" aria-current="page">Operations</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="section-space" aria-label="Operational readiness and assurance">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Operational readiness</p>
+            <h1>Commercial-grade controls for confidence and auditability</h1>
+          </div>
+        </div>
+        <div class="dashboard-grid">
+          <article class="panel">
+            <h2>Security</h2>
+            <ul class="simple-list">
+              <li>Photo references generated using deterministic S3 object prefixes.</li>
+              <li>Login flow designed for token-based API sessions.</li>
+              <li>Backend endpoints CORS-enabled for separate web/API deployments.</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h2>Reliability</h2>
+            <ul class="simple-list">
+              <li>Submission gracefully degrades to local demo flow if API is offline.</li>
+              <li>Payment stays locked until approved status is applied.</li>
+              <li>Status timeline maps directly to backend lifecycle states.</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h2>Audit trail</h2>
+            <ul class="simple-list">
+              <li>Booking confirmations include immutable IDs.</li>
+              <li>Review statuses are user-visible and stateful across stages.</li>
+              <li>Backend persists event logs for every transition.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

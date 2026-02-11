@@ -25,7 +25,14 @@ cd frontend/ui
 python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080` and set **Backend API base URL** to `http://localhost:8081`.
+Open `http://localhost:8080` for the homepage, then use dedicated routes:
+
+- `http://localhost:8080/auth/`
+- `http://localhost:8080/dashboard/`
+- `http://localhost:8080/booking/`
+- `http://localhost:8080/operations/`
+
+Set **Backend API base URL** on the booking page to `http://localhost:8081`.
 
 ## What the backend API is
 
