@@ -1,126 +1,141 @@
-# Hatfield Storage Solutions (HSS) – Storage Booking Platform
+# Hatfield Storage Solutions (HSS) Storage Booking Platform
 
-## **Project Overview**
+Hatfield Storage Solutions (HSS) is a **demo cloud platform** for a seasonal student storage business in Hatfield, Pretoria.
+The platform showcases how students can request pickup/storage and how administrators can track bookings and inventory using a WordPress-based workflow deployed on AWS.
 
-Hatfield Storage Solutions (HSS) is a seasonal student storage service based in Hatfield Pretoria. This is a student area where thousands of university students reside. At the end of the academic year, a lot of student accomodations require students to move all their belongins from their appartments/rooms. They often need convinient, secure storage for items such as beds, fridges, desks, and boxes. HSS provides pickup, secure storage in third-party units, and return of items. Pricing is calculated based on item type, quantity, and storage duration.
+## What this project demonstrates
 
-This project demonstrates a cloud-based, WordPress-powered web platform that enables students to request storage, manage bookings, and track their items. Administrators can manage storage units, bookings, and inventory efficiently. The project is built as a **demo and portfolio piece**, using **AWS Free Tier services**.
+- A practical business use case modeled as a cloud solution
+- Infrastructure as Code (IaC) with AWS CloudFormation
+- A WordPress + WooCommerce-style booking experience (demo scope)
+- Supporting services for persistence and media storage (RDS + S3)
+- Portfolio-ready architecture and documentation
 
----
+> [!IMPORTANT]
+> This repository is intended for **educational/portfolio use** and is **not production-ready**.
 
-## **Objectives**
+## Core objectives
 
-* **Customer Features**
+### Customer capabilities (target)
+- Request storage bookings by item type and quantity
+- Estimate cost by item mix and storage duration
+- Track booking status and stored items
+- Use QR-based booking confirmation (demo concept)
 
-  * Book storage for items
-  * Calculate pricing based on item type and storage duration
-  * View booking status and stored items
-  * QR codes for booking confirmation
-* **Admin Features**
+### Admin capabilities (target)
+- Manage seasonal unit availability
+- Track bookings and inventory details
+- Map QR identifiers to stored items/bookings
 
-  * Manage storage units and seasonal availability
-  * Track bookings and inventory
-  * View QR codes linked to stored items
-* **Infrastructure & Deployment**
+### Infrastructure goals
+- Provision AWS infrastructure with CloudFormation
+- Keep resources aligned with AWS Free Tier where possible
+- Demonstrate repeatable deployment via IaC
 
-  * Provisioned using **AWS CloudFormation** (EC2, RDS, S3, IAM)
-  * Demonstrates Infrastructure as Code principles
-  * Fully deployable on AWS Free Tier for demo purposes
-* **Documentation & Reporting**
+## Repository structure
 
-  * Architecture diagrams
-  * Demo screenshots
-  * Project scope and workflow documentation
-
----
-
-## **Project Scope**
-
-**In-Scope**
-
-* WordPress-based web platform with WooCommerce for booking simulation
-* Dynamic pricing calculations per item and duration
-* Customer login and booking dashboard
-* Admin management interface for storage units
-* QR code generation for bookings (demo)
-* Deployment using AWS CloudFormation
-
-**Out of Scope**
-
-* Production-level security (HTTPS, private subnets)
-* Real payment processing (uses WooCommerce sandbox mode)
-* Auto-scaling or high-availability architecture
-* Integration with third-party logistics APIs
-
-**Assumptions**
-
-* Storage units are rented from third-party providers
-* Maximum of **5 storage units per season**
-* Project is for demonstration and portfolio purposes only
-
----
-
-## **Architecture**
-
-The platform architecture is simple, cloud-friendly, and **demo-focused**:
-
-**Components:**
-
-* **EC2 t3.micro** – Hosts WordPress and WooCommerce
-* **Amazon RDS MySQL** – Stores booking and user data
-* **Amazon S3** – Stores inventory photos and documents
-* **IAM Roles** – Grants EC2 secure access to S3
-* **CloudFormation** – Infrastructure as Code for reproducible deployment
-
-**High-Level Flow:**
-
-```
-User → Internet → EC2 (WordPress) → RDS (MySQL)
-                          ↓
-                         S3 (Inventory Photos)
+```text
+.
+├── README.md
+├── cloudformation/
+│   ├── hss-stack.yaml
+│   └── README.md
+├── docs/
+│   └── README.md
+└── wordpress/
+    └── custom-plugin/
+        └── plugin.php
 ```
 
-* Customers access the site via browser
-* EC2 handles application logic
-* RDS stores structured data
-* S3 stores inventory media, accessed securely via IAM role
+## Current architecture
 
----
+High-level runtime flow:
 
-## **Deliverables**
+```text
+Student/User Browser
+        │
+        ▼
+EC2 (WordPress application)
+        │
+        ▼
+RDS MySQL (booking + account data)
 
-1. **CloudFormation Template** – Deploys infrastructure on AWS Free Tier
-2. **WordPress Demo Site** – Customer and admin portals
-3. **Custom Plugin Skeleton** – Handles bookings, storage units, and QR codes
-4. **Architecture Diagram** – Visual representation of the system
-5. **Documentation & Screenshots** – Scope, workflow, and portfolio evidence
+EC2 ──(IAM role)──► S3 bucket (inventory photos/documents)
+```
 
----
+Main AWS components in `cloudformation/hss-stack.yaml`:
 
+- **EC2 t3.micro** for the web application host
+- **RDS MySQL db.t3.micro** for relational data
+- **S3 bucket** for inventory/media assets
+- **IAM role + instance profile** for EC2-to-S3 access
+- **Security group** allowing HTTP/HTTPS/SSH ingress
 
-## **Future Enhancements**
+## Scope and constraints
 
-* Production-ready deployment with HTTPS, private subnets, and scaling
-* Real payment gateway integration
-* SMS or email notifications for bookings
-* Capacity-based storage optimization
-* Multi-environment CloudFormation stacks
+### In scope
+- WordPress-based booking demo flow
+- Basic storage-unit and booking management model
+- CloudFormation-driven infrastructure provisioning
+- Portfolio documentation and architecture communication
 
----
+### Out of scope
+- Production hardening (private networking, TLS automation, WAF, etc.)
+- Real payments and finance-grade transaction controls
+- Multi-AZ high availability and autoscaling
+- Third-party logistics integrations
 
-## **Author Notes**
+### Assumptions
+- Storage units are leased from third-party providers
+- Operational demand is seasonal and relatively small
+- Initial cap is approximately five storage units per season
 
-This project was designed as a **demonstration and portfolio project**. It highlights:
+## Quick start (infrastructure)
 
-* Cloud architecture knowledge (AWS services + IaC)
-* WordPress application customization
-* Business logic implementation for a real-world problem
-* Documentation and portfolio readiness
+### Prerequisites
+- AWS account with permissions for EC2, RDS, S3, IAM, and CloudFormation
+- AWS CLI configured (`aws configure`)
+- Existing EC2 Key Pair in your target region
 
----
+### Deploy stack
 
-## **License**
+```bash
+aws cloudformation create-stack \
+  --stack-name hss-demo-stack \
+  --template-body file://cloudformation/hss-stack.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameters \
+    ParameterKey=KeyName,ParameterValue=<your-keypair-name> \
+    ParameterKey=DBUsername,ParameterValue=admin \
+    ParameterKey=DBPassword,ParameterValue=<strong-password>
+```
 
-For educational and portfolio purposes only.
+### Check outputs
 
+```bash
+aws cloudformation describe-stacks \
+  --stack-name hss-demo-stack \
+  --query "Stacks[0].Outputs"
+```
 
+Expected outputs include:
+- EC2 public IP
+- RDS endpoint
+- S3 bucket name
+
+## Known limitations (current template)
+
+- The CloudFormation template currently includes a duplicated `Parameters` section, which should be consolidated for reliable validation/deployment.
+- Security defaults are intentionally permissive for demo convenience and should be tightened before any real-world use.
+
+## Suggested next improvements
+
+- Add user-data bootstrapping to install/configure WordPress automatically on EC2
+- Move database connectivity to private networking
+- Add HTTPS via ACM + ALB or CloudFront
+- Expand the custom plugin to model item catalogs, pricing rules, and QR lifecycle
+- Fill `docs/` with architecture diagrams, runbooks, and demo screenshots
+
+## License
+
+For educational and portfolio demonstration purposes.
