@@ -12,11 +12,28 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from messaging import build_publisher_from_env
+
 DB_PATH = Path(__file__).with_name("hss.db")
+PUBLISHER = build_publisher_from_env()
+
+STAFF_VISIBLE_STATUSES = ("submitted", "approved", "collected", "in_storage")
 
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def infer_role(email: str, requested_role: str | None = None) -> str:
+    if requested_role in {"customer", "staff", "admin"}:
+        return requested_role
+
+    identity = email.lower()
+    if identity.startswith("admin") or identity.endswith("@hss-admin.co.za"):
+        return "admin"
+    if identity.startswith("staff") or identity.endswith("@hss-ops.co.za"):
+        return "staff"
+    return "customer"
 
 
 def init_db() -> None:
@@ -78,6 +95,13 @@ def log_event(conn: sqlite3.Connection, event_type: str, booking_id: str | None,
     )
 
 
+def publish_business_event(event_type: str, booking_id: str | None, payload: dict[str, Any]) -> None:
+    try:
+        PUBLISHER.publish(event_type=event_type, booking_id=booking_id, payload=payload)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[messaging] publish failed for {event_type} booking={booking_id}: {exc}")
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "HSSPlatform/1.0"
 
@@ -95,10 +119,20 @@ class Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length) if length else b"{}"
         return json.loads(raw or b"{}")
 
+    def _role(self) -> str:
+        role = (self.headers.get("X-HSS-Role", "customer") or "customer").strip().lower()
+        return role if role in {"customer", "staff", "admin"} else "customer"
+
+    def _require_role(self, allowed_roles: set[str]) -> bool:
+        if self._role() not in allowed_roles:
+            self._json(403, {"error": "forbidden", "required_roles": sorted(allowed_roles)})
+            return False
+        return True
+
     def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(HTTPStatus.NO_CONTENT)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type,X-HSS-Role")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS")
         self.end_headers()
 
@@ -140,7 +174,62 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, payload)
             return
 
+        if path == "/api/v1/staff/queue":
+            if not self._require_role({"staff", "admin"}):
+                return
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.row_factory = sqlite3.Row
+                placeholders = ",".join("?" for _ in STAFF_VISIBLE_STATUSES)
+                rows = conn.execute(
+                    f"SELECT * FROM bookings WHERE status IN ({placeholders}) ORDER BY created_at ASC",
+                    STAFF_VISIBLE_STATUSES,
+                ).fetchall()
+            self._json(200, {"queue": [row_to_dict(r) for r in rows], "count": len(rows)})
+            return
+
+        if path == "/api/v1/admin/bookings":
+            if not self._require_role({"admin"}):
+                return
+            params = parse_qs(parsed.query)
+            status_filter = params.get("status", [None])[0]
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.row_factory = sqlite3.Row
+                if status_filter:
+                    rows = conn.execute(
+                        "SELECT * FROM bookings WHERE status = ? ORDER BY created_at DESC", (status_filter,)
+                    ).fetchall()
+                else:
+                    rows = conn.execute("SELECT * FROM bookings ORDER BY created_at DESC").fetchall()
+            self._json(200, {"bookings": [row_to_dict(r) for r in rows], "count": len(rows)})
+            return
+
+        if path == "/api/v1/admin/overview":
+            if not self._require_role({"admin"}):
+                return
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.row_factory = sqlite3.Row
+                by_status = conn.execute(
+                    "SELECT status, COUNT(*) AS count FROM bookings GROUP BY status ORDER BY status"
+                ).fetchall()
+                totals = conn.execute(
+                    "SELECT COUNT(*) AS total_bookings, COALESCE(SUM(total), 0) AS gross_value, "
+                    "COALESCE(SUM(CASE WHEN status='paid' THEN total ELSE 0 END), 0) AS paid_revenue "
+                    "FROM bookings"
+                ).fetchone()
+            self._json(
+                200,
+                {
+                    "total_bookings": totals["total_bookings"],
+                    "gross_value": totals["gross_value"],
+                    "paid_revenue": totals["paid_revenue"],
+                    "status_breakdown": [row_to_dict(r) for r in by_status],
+                },
+            )
+            return
+
         if path == "/api/v1/audit":
+            if not self._require_role({"staff", "admin"}):
+                return
             with sqlite3.connect(DB_PATH) as conn:
                 conn.row_factory = sqlite3.Row
                 events = conn.execute("SELECT * FROM audit_events ORDER BY id DESC LIMIT 200").fetchall()
@@ -163,8 +252,9 @@ class Handler(BaseHTTPRequestHandler):
             if not email:
                 self._json(400, {"error": "email is required"})
                 return
-            token = f"demo-{abs(hash(email)) % 1000000}"
-            self._json(200, {"token": token, "role": "customer", "expires_in": 3600})
+            role = infer_role(email, body.get("role"))
+            token = f"demo-{role}-{abs(hash(email)) % 1000000}"
+            self._json(200, {"token": token, "role": role, "expires_in": 3600})
             return
 
         if path == "/api/v1/bookings":
@@ -210,6 +300,11 @@ class Handler(BaseHTTPRequestHandler):
                         (booking_id, item["type"], item.get("name", "").strip(), item.get("s3Key", "")),
                     )
                 log_event(conn, "booking_submitted", booking_id, {"email": body["email"], "items": len(body["items"])})
+            publish_business_event(
+                "booking_submitted",
+                booking_id,
+                {"email": body["email"].strip().lower(), "item_count": len(body["items"]), "status": status},
+            )
             self._json(201, {"booking_id": booking_id, "status": status})
             return
 
@@ -231,7 +326,34 @@ class Handler(BaseHTTPRequestHandler):
                     ("paid", payment_reference, utc_now(), booking_id),
                 )
                 log_event(conn, "payment_captured", booking_id, {"method": method, "payment_reference": payment_reference})
+            publish_business_event(
+                "payment_captured",
+                booking_id,
+                {"method": method, "payment_reference": payment_reference, "status": "paid"},
+            )
             self._json(200, {"booking_id": booking_id, "payment_reference": payment_reference, "status": "paid"})
+            return
+
+        if path.endswith("/approve") and path.startswith("/api/v1/staff/bookings/"):
+            if not self._require_role({"staff", "admin"}):
+                return
+            booking_id = path.split("/")[-2]
+            with sqlite3.connect(DB_PATH) as conn:
+                found = conn.execute("SELECT id, status FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+                if not found:
+                    self._json(404, {"error": "Booking not found"})
+                    return
+                if found[1] not in {"submitted", "approved"}:
+                    self._json(409, {"error": "Only submitted bookings can be approved"})
+                    return
+                conn.execute(
+                    "UPDATE bookings SET status = ?, updated_at = ? WHERE id = ?",
+                    ("approved", utc_now(), booking_id),
+                )
+                actor = self._role()
+                log_event(conn, "staff_booking_approved", booking_id, {"status": "approved", "actor_role": actor})
+            publish_business_event("staff_booking_approved", booking_id, {"status": "approved", "actor_role": self._role()})
+            self._json(200, {"booking_id": booking_id, "status": "approved"})
             return
 
         self._json(404, {"error": "Not found"})
@@ -257,6 +379,7 @@ class Handler(BaseHTTPRequestHandler):
                     (new_status, utc_now(), booking_id),
                 )
                 log_event(conn, "status_updated", booking_id, {"status": new_status})
+            publish_business_event("status_updated", booking_id, {"status": new_status})
             self._json(200, {"booking_id": booking_id, "status": new_status})
             return
 

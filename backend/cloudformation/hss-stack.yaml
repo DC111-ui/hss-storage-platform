@@ -4,7 +4,9 @@ Description: >
   - EC2 instance for custom web UI/API workload
   - RDS MySQL database
   - S3 bucket for inventory assets
-  - IAM role for EC2 to access S3
+  - SNS topic for booking lifecycle fan-out and customer email notifications
+  - API Gateway REST API invoking a Lambda backend
+  - IAM roles for EC2 and Lambda
 
 Parameters:
   VpcId:
@@ -49,6 +51,11 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
 
+  NotificationEmail:
+    Description: Optional email endpoint for SNS notifications (blank disables subscription)
+    Type: String
+    Default: ""
+
 Resources:
   # S3 Bucket for Inventory
   HSSInventoryBucket:
@@ -66,6 +73,20 @@ Resources:
         RestrictPublicBuckets: true
       VersioningConfiguration:
         Status: Enabled
+
+  HSSBookingEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: HSS Booking Lifecycle Events
+      TopicName: !Sub hss-booking-events-${AWS::StackName}
+
+  HSSBookingEventsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
+    Properties:
+      TopicArn: !Ref HSSBookingEventsTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
 
   EC2S3Role:
     Type: AWS::IAM::Role
@@ -95,6 +116,11 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                 Resource: !Sub ${HSSInventoryBucket.Arn}/*
+              - Sid: AllowPublishBookingEvents
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref HSSBookingEventsTopic
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -140,7 +166,7 @@ Resources:
       DBSubnetGroupDescription: Subnet group for HSS MySQL database
       SubnetIds: !Ref DBSubnetIds
 
-  # EC2 Instance for WordPress
+  # EC2 Instance for custom UI/API host
   HSSWebServer:
     Type: AWS::EC2::Instance
     Properties:
@@ -178,6 +204,163 @@ Resources:
       VPCSecurityGroups:
         - !GetAtt HSSDatabaseSecurityGroup.GroupId
 
+  HSSApiLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: HSSLambdaPublishToSns
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: PublishBusinessNotifications
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref HSSBookingEventsTopic
+
+  HSSApiLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub hss-rest-api-handler-${AWS::StackName}
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt HSSApiLambdaRole.Arn
+      Timeout: 15
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref HSSBookingEventsTopic
+      Code:
+        ZipFile: |
+          import json
+          import os
+
+          import boto3
+
+          sns = boto3.client("sns")
+
+
+          def response(status_code, body):
+              return {
+                  "statusCode": status_code,
+                  "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                  "body": json.dumps(body),
+              }
+
+
+          def handler(event, context):
+              method = event.get("httpMethod", "GET")
+              path = event.get("path", "/")
+
+              if method == "OPTIONS":
+                  return {
+                      "statusCode": 204,
+                      "headers": {
+                          "Access-Control-Allow-Origin": "*",
+                          "Access-Control-Allow-Headers": "Content-Type,X-HSS-Role",
+                          "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+                      },
+                      "body": "",
+                  }
+
+              if path == "/health":
+                  return response(200, {"status": "ok", "service": "hss-lambda-api"})
+
+              if method == "POST" and path == "/api/v1/notifications":
+                  payload = json.loads(event.get("body") or "{}")
+                  message = payload.get("message", "HSS notification")
+                  topic_arn = os.environ.get("SNS_TOPIC_ARN")
+                  if topic_arn:
+                      sns.publish(TopicArn=topic_arn, Subject="hss.notification", Message=json.dumps(payload))
+                  return response(202, {"accepted": True, "message": message})
+
+              return response(
+                  200,
+                  {
+                      "message": "API Gateway -> Lambda integration active",
+                      "method": method,
+                      "path": path,
+                      "request_id": context.aws_request_id,
+                  },
+              )
+
+  HSSRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub hss-rest-api-${AWS::StackName}
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  HSSRestApiProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref HSSRestApi
+      ParentId: !GetAtt HSSRestApi.RootResourceId
+      PathPart: '{proxy+}'
+
+  HSSRestApiRootMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref HSSRestApi
+      ResourceId: !GetAtt HSSRestApi.RootResourceId
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HSSApiLambda.Arn}/invocations
+
+  HSSRestApiProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref HSSRestApi
+      ResourceId: !Ref HSSRestApiProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.path.proxy: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HSSApiLambda.Arn}/invocations
+
+  HSSRestApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - HSSRestApiRootMethod
+      - HSSRestApiProxyMethod
+    Properties:
+      RestApiId: !Ref HSSRestApi
+      Description: Initial deployment for HSS API Gateway -> Lambda REST API
+
+  HSSRestApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref HSSRestApi
+      DeploymentId: !Ref HSSRestApiDeployment
+      StageName: prod
+
+  HSSApiLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HSSApiLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HSSRestApi}/*/*/*
+
+Conditions:
+  HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+
 Outputs:
   EC2PublicIP:
     Description: Public IP of custom app EC2 host
@@ -190,3 +373,19 @@ Outputs:
   RDSEndpoint:
     Description: Endpoint of RDS MySQL
     Value: !GetAtt HSSDatabase.Endpoint.Address
+
+  BookingEventsTopicArn:
+    Description: SNS topic ARN for booking lifecycle events
+    Value: !Ref HSSBookingEventsTopic
+
+  RestApiInvokeUrl:
+    Description: Invoke URL for API Gateway REST API integrated with Lambda
+    Value: !Sub https://${HSSRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+
+  RestApiId:
+    Description: API Gateway REST API ID
+    Value: !Ref HSSRestApi
+
+  LambdaFunctionArn:
+    Description: ARN of Lambda function invoked by API Gateway
+    Value: !GetAtt HSSApiLambda.Arn
