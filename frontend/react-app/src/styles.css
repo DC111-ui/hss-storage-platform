@@ -1,0 +1,69 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color: #e5efff;
+  background: #0f172a;
+}
+
+body {
+  margin: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+h1,
+h2 {
+  margin-bottom: 0.5rem;
+}
+
+.booking-form {
+  display: grid;
+  gap: 1rem;
+  background: #172554;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+input,
+select,
+button {
+  border-radius: 8px;
+  border: 1px solid #475569;
+  padding: 0.6rem;
+}
+
+button {
+  cursor: pointer;
+  background: #38bdf8;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.status.online {
+  color: #22c55e;
+}
+
+.status.offline {
+  color: #ef4444;
+}
+
+.booking-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.booking-list li {
+  background: #1e293b;
+  padding: 0.75rem;
+  border-radius: 8px;
+}

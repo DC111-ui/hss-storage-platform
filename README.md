@@ -1,79 +1,89 @@
 # Hatfield Storage Solutions (HSS) Platform
 
-This repository provides a full-stack storage-booking platform demo:
+This repository has been rebuilt as a modern JavaScript platform:
 
-- `frontend/ui`: customer-facing booking and dashboard UI
-- `backend/api`: backend API service and lifecycle logic
-- `backend/cloudformation`: AWS infrastructure templates/notes
-- `docs`: audit and implementation guidance
+- **React frontend** (`frontend/react-app`) for the booking user interface.
+- **Node.js API** (`backend/node-api`) with Express endpoints.
+- **AWS CDK infrastructure** (`infra/cdk`) for deployable cloud resources.
 
-## Run locally
+## Project structure
 
-### 1) Start backend API
-
-```bash
-cd backend/api
-python3 server.py
+```text
+.
+├── frontend/react-app     # React + Vite single-page app
+├── backend/node-api       # Node.js + Express API
+└── infra/cdk              # AWS CDK app (TypeScript)
 ```
 
-Backend URL: `http://localhost:8081`
+## Prerequisites
 
-### 2) Start frontend
+- Node.js 20+
+- npm 10+
+- AWS credentials configured (for CDK deploy)
+
+## Install dependencies
+
+From repository root:
 
 ```bash
-cd frontend/ui
-python3 -m http.server 8080
+npm install
 ```
 
-Open `http://localhost:8080` for the homepage, then use dedicated routes:
+## Local development
 
-- `http://localhost:8080/auth/`
-- `http://localhost:8080/dashboard/`
-- `http://localhost:8080/booking/`
-- `http://localhost:8080/operations/`
+Run backend API:
 
-Set **Backend API base URL** on the booking page to `http://localhost:8081`.
+```bash
+npm run dev:backend
+```
 
-## What the backend API is
+Run React frontend in another shell:
 
-`backend/api/server.py` is the project API layer used by the frontend for:
+```bash
+npm run dev:frontend
+```
 
-- login
-- booking creation
-- staff approval status update
-- payment capture (gated by approval)
-- audit trail retrieval
+The frontend expects the API at `http://localhost:3001` by default.
+Set `VITE_API_URL` if you need a different backend endpoint.
 
-In local mode, data is persisted in SQLite (`backend/api/hss.db`) for fast iteration and easy auditing.
+## API endpoints
 
-## How it connects to AWS
+- `GET /health` - service health check
+- `GET /api/bookings` - list bookings
+- `POST /api/bookings` - create booking
 
-Current code is a local-first reference implementation. AWS integration is achieved by deploying the API runtime on EC2/ECS and replacing local persistence with managed services:
+Example payload:
 
-- **Compute:** EC2 or ECS/App Runner
-- **Relational data:** RDS MySQL/Postgres
-- **Object storage:** S3 for item photos/documents
-- **Secrets:** AWS Secrets Manager or SSM Parameter Store
-- **Network/security:** VPC security groups, private DB networking, TLS at ALB
+```json
+{
+  "customerName": "Taylor",
+  "unitSize": "Medium"
+}
+```
 
-See `backend/api/README.md` for the step-by-step migration plan and design rationale.
+## Build and test
 
-## Why not DynamoDB (for this iteration)
+```bash
+npm run build
+npm run test
+```
 
-We prioritized a relational model because this domain currently needs:
+## Deploy with AWS CDK
 
-- booking + item relationships
-- lifecycle state transitions with transactional behavior
-- straightforward audit/report queries
+From root:
 
-DynamoDB is still a valid future option if access patterns become primarily key-value and throughput/scale characteristics justify denormalized redesign.
+```bash
+npm run build --workspace infra/cdk
+npm run synth --workspace infra/cdk
+npm run cdk --workspace infra/cdk deploy
+```
 
-## Audit documents
+The CDK stack provisions:
 
-- Backend API and AWS integration plan: `backend/api/README.md`
-- Platform audit checklist: `docs/README.md`
-- CloudFormation controls: `backend/cloudformation/README.md`
+- VPC and ECS cluster
+- Application Load Balanced Fargate service for the Node API
+- Private S3 bucket + CloudFront distribution for frontend hosting
 
-## License
+## Legacy artifacts
 
-For educational and portfolio use.
+Legacy static frontend, Python API, and CloudFormation references are kept in this repo for history/documentation but are no longer the primary runtime paths.
