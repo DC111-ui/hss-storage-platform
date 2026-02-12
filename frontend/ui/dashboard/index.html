@@ -9,7 +9,24 @@
   <body>
     <header class="top-nav">
       <div class="page-shell nav-inner">
-        <a href="/" class="brand">HSS Storage</a>
+        <a href="/" class="brand" aria-label="HSS Storage home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" role="img" focusable="false">
+              <defs>
+                <linearGradient id="hss-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#38bdf8" />
+                  <stop offset="100%" stop-color="#0f3f78" />
+                </linearGradient>
+              </defs>
+              <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#hss-grad)" />
+              <path d="M13 15h6v7h10v-7h6v18h-6v-6H19v6h-6V15z" fill="#fff" />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <strong>HSS</strong>
+            <small>Storage Platform</small>
+          </span>
+        </a>
         <nav aria-label="Primary">
           <a href="/auth/">Login</a>
           <a href="/dashboard/" aria-current="page">Dashboard</a>
