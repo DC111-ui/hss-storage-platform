@@ -10,6 +10,9 @@ The current server (`backend/api/server.py`) is a **lightweight reference implem
 - SQLite persistence for `bookings`, `booking_items`, and `audit_events`
 - REST lifecycle endpoints for submit → approve → pay
 - CORS support for browser frontend integration
+- Structured error envelopes with request IDs for traceability
+- Pagination support for booking list endpoints (`limit` / `offset`)
+- Lifecycle transition guardrails (invalid status jumps rejected)
 
 This is intentionally simple so you can audit behavior quickly before wiring to managed cloud services.
 

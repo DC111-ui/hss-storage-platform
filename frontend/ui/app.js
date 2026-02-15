@@ -26,8 +26,40 @@ const state = {
   items: [],
   bookingId: "",
   status: "draft",
+  session: {
+    token: sessionStorage.getItem("hss-token") || "",
+    role: sessionStorage.getItem("hss-role") || "customer",
+  },
   apiBase: localStorage.getItem("hss-api-base") || "http://localhost:8081",
 };
+
+class ApiClient {
+  constructor(getState) {
+    this.getState = getState;
+  }
+
+  async request(path, options = {}) {
+    const { apiBase, session } = this.getState();
+    const response = await fetch(`${apiBase}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-HSS-Role": session.role || "customer",
+        ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = data?.error?.message || data.error || `API request failed (${response.status})`;
+      throw new Error(message);
+    }
+    return data;
+  }
+}
+
+const api = new ApiClient(() => state);
 
 function byId(id) {
   return document.getElementById(id);
@@ -208,9 +240,8 @@ function renderThumbnailPreview() {
   }
 
   const thumbItems = state.items.filter((item) => item.thumbnail);
-
-  if (thumbItems.length === 0) {
-    container.innerHTML = '<p class="hint">Item thumbnails appear here once photos are uploaded.</p>';
+  if (!thumbItems.length) {
+    container.innerHTML = "<p class='hint'>Upload photos to preview thumbnails here.</p>";
     return;
   }
 
@@ -218,7 +249,7 @@ function renderThumbnailPreview() {
     .map(
       (item) => `
       <figure class="thumb-card">
-        <img src="${item.thumbnail}" alt="Thumbnail for ${getItemLabel(item)}" />
+        <img src="${item.thumbnail}" alt="${getItemLabel(item)}" loading="lazy" />
         <figcaption>${getItemLabel(item)}</figcaption>
       </figure>
     `,
@@ -226,65 +257,71 @@ function renderThumbnailPreview() {
     .join("");
 }
 
-function generateS3Key(fileName) {
-  const safeName = fileName.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
-  return `s3://hss-storage-item-photos/orders/${Date.now()}-${safeName}`;
-}
-
-function handlePhotoUpload(item, fileInput) {
-  const [file] = fileInput.files;
-  if (!file) {
-    return;
-  }
-
-  item.photo = file;
-  item.photoName = file.name;
-  item.s3Key = generateS3Key(file.name);
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    item.thumbnail = String(reader.result || "");
-    updateEstimate();
-    renderItems();
-  };
-  reader.readAsDataURL(file);
-}
-
 function bindItemCardEvents() {
-  document.querySelectorAll(".item-card").forEach((card) => {
-    const item = state.items.find((entry) => entry.id === card.dataset.itemId);
+  document.querySelectorAll("[data-item-id]").forEach((card) => {
+    const itemId = card.getAttribute("data-item-id");
+    const item = state.items.find((entry) => entry.id === itemId);
     if (!item) {
       return;
     }
 
-    card.querySelector('[data-item-action="remove"]')?.addEventListener("click", () => {
-      state.items = state.items.filter((entry) => entry.id !== item.id);
-      renderItems();
-    });
+    card.querySelectorAll("[data-item-action]").forEach((control) => {
+      control.addEventListener("change", (event) => {
+        const action = control.getAttribute("data-item-action");
 
-    card.querySelector('[data-item-action="type"]')?.addEventListener("change", (event) => {
-      item.type = event.target.value;
-      if (item.type !== "other") {
-        item.name = "";
+        if (action === "type") {
+          item.type = event.target.value;
+          if (item.type !== "other") {
+            item.name = "";
+          }
+          renderItems();
+          return;
+        }
+
+        if (action === "name") {
+          item.name = event.target.value;
+          updateEstimate();
+          return;
+        }
+
+        if (action === "photo") {
+          const [file] = event.target.files || [];
+          if (!file) {
+            return;
+          }
+
+          item.photo = file;
+          item.photoName = file.name;
+          item.thumbnail = URL.createObjectURL(file);
+          item.s3Key = `bookings/${state.bookingId || "draft"}/${item.id}-${file.name.replace(/\s+/g, "-").toLowerCase()}`;
+          renderItems();
+          return;
+        }
+
+        if (action === "remove") {
+          if (state.items.length > 1) {
+            state.items = state.items.filter((entry) => entry.id !== itemId);
+            renderItems();
+          }
+        }
+      });
+
+      if (control.getAttribute("data-item-action") === "remove") {
+        control.addEventListener("click", () => {
+          if (state.items.length > 1) {
+            state.items = state.items.filter((entry) => entry.id !== itemId);
+            renderItems();
+          }
+        });
       }
-      renderItems();
-    });
-
-    card.querySelector('[data-item-action="name"]')?.addEventListener("input", (event) => {
-      item.name = event.target.value;
-      updateEstimate();
-    });
-
-    card.querySelector('[data-item-action="photo"]')?.addEventListener("change", (event) => {
-      handlePhotoUpload(item, event.target);
     });
   });
 }
 
-function setReviewStatus(text) {
-  const reviewStatus = byId("review-status");
-  if (reviewStatus) {
-    reviewStatus.textContent = text;
+function setReviewStatus(label) {
+  const node = byId("review-status");
+  if (node) {
+    node.textContent = label;
   }
 }
 
@@ -301,22 +338,6 @@ function updateStepper() {
   });
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(`${state.apiBase}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || `API request failed (${response.status})`);
-  }
-  return data;
-}
-
 function getBookingPayload() {
   const pricing = calculatePricing();
   return {
@@ -330,6 +351,21 @@ function getBookingPayload() {
   };
 }
 
+function setLoading(button, loading) {
+  if (!button) {
+    return;
+  }
+  button.disabled = loading;
+  button.dataset.loading = loading ? "true" : "false";
+}
+
+function persistSession(loginResponse) {
+  state.session.token = loginResponse.token;
+  state.session.role = loginResponse.role;
+  sessionStorage.setItem("hss-token", loginResponse.token);
+  sessionStorage.setItem("hss-role", loginResponse.role);
+}
+
 function setupForms() {
   const signInForm = byId("signin-form");
   const signUpForm = byId("signup-form");
@@ -339,16 +375,21 @@ function setupForms() {
 
   signInForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const email = readText("signin-email", "demo@hss.co.za");
+    const email = readText("signin-email", "demo@hss.co.za").trim();
+    const submitButton = signInForm.querySelector("button[type='submit']");
+    setLoading(submitButton, true);
 
     try {
-      const login = await apiRequest("/api/v1/auth/login", {
+      const login = await api.request("/api/v1/auth/login", {
         method: "POST",
         body: JSON.stringify({ email }),
       });
-      showMessage("auth-status", `Signed in. Session token: ${login.token}`, "success");
+      persistSession(login);
+      showMessage("auth-status", `Signed in securely as ${login.role}. Session active for ${login.expires_in / 60} minutes.`, "success");
     } catch (error) {
-      showMessage("auth-status", `Demo sign in fallback: ${error.message}`, "warning");
+      showMessage("auth-status", `Unable to sign in: ${error.message}`, "warning");
+    } finally {
+      setLoading(submitButton, false);
     }
   });
 
@@ -366,8 +407,11 @@ function setupForms() {
     }
 
     const payload = getBookingPayload();
+    const submitButton = bookingForm.querySelector("button[type='submit']");
+    setLoading(submitButton, true);
+
     try {
-      const booking = await apiRequest("/api/v1/bookings", {
+      const booking = await api.request("/api/v1/bookings", {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -386,6 +430,8 @@ function setupForms() {
       setReviewStatus("Submitted (local fallback)");
       updateStepper();
       showMessage("form-status", `Backend unavailable; local flow active: ${error.message}`, "warning");
+    } finally {
+      setLoading(submitButton, false);
     }
   });
 
@@ -394,9 +440,10 @@ function setupForms() {
       return;
     }
 
+    setLoading(approveOrder, true);
     if (state.bookingId) {
       try {
-        await apiRequest(`/api/v1/bookings/${state.bookingId}/status`, {
+        await api.request(`/api/v1/bookings/${state.bookingId}/status`, {
           method: "PATCH",
           body: JSON.stringify({ status: "approved" }),
         });
@@ -410,6 +457,7 @@ function setupForms() {
     proceedPayment.disabled = false;
     updateStepper();
     showMessage("form-status", "Staff approval complete. Payment unlocked.", "success");
+    setLoading(approveOrder, false);
   });
 
   proceedPayment?.addEventListener("click", async () => {
@@ -418,16 +466,18 @@ function setupForms() {
       return;
     }
 
+    setLoading(proceedPayment, true);
     if (state.bookingId) {
       try {
-        const payment = await apiRequest(`/api/v1/bookings/${state.bookingId}/payment`, {
+        const payment = await api.request(`/api/v1/bookings/${state.bookingId}/payment`, {
           method: "POST",
-          body: JSON.stringify({ method: readText("payment-method", "card") || "card" }),
+          body: JSON.stringify({ method: readText("payment-method", "card").toLowerCase() || "card" }),
         });
         state.status = "paid";
         setReviewStatus(`Paid (${payment.payment_reference})`);
         updateStepper();
         showMessage("form-status", `Payment captured. Reference: ${payment.payment_reference}.`, "success");
+        setLoading(proceedPayment, false);
         return;
       } catch (error) {
         showMessage("form-status", `Payment fallback mode: ${error.message}`, "warning");
@@ -439,6 +489,7 @@ function setupForms() {
     setReviewStatus(`Paid (${confirmationId})`);
     updateStepper();
     showMessage("form-status", `Booking confirmed locally. Confirmation ID: ${confirmationId}`, "success");
+    setLoading(proceedPayment, false);
   });
 }
 
@@ -462,6 +513,10 @@ function setupEstimateRefresh() {
     localStorage.setItem("hss-api-base", state.apiBase);
     showMessage("api-status", `API base updated to ${state.apiBase}`, "success");
   });
+
+  if (state.session.token) {
+    showMessage("api-status", `Authenticated session detected (${state.session.role}).`, "success");
+  }
 }
 
 setupAuthTabs();

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -11,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 from messaging import build_publisher_from_env
 
@@ -18,6 +20,17 @@ DB_PATH = Path(__file__).with_name("hss.db")
 PUBLISHER = build_publisher_from_env()
 
 STAFF_VISIBLE_STATUSES = ("submitted", "approved", "collected", "in_storage")
+ALLOWED_STATUSES = {"submitted", "approved", "collected", "in_storage", "returned", "paid"}
+STATUS_TRANSITIONS = {
+    "submitted": {"approved"},
+    "approved": {"collected", "paid"},
+    "collected": {"in_storage"},
+    "in_storage": {"returned"},
+    "returned": set(),
+    "paid": {"collected"},
+}
+ALLOWED_PAYMENT_METHODS = {"card", "eft", "saved card ending in 1042"}
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def utc_now() -> str:
@@ -103,7 +116,10 @@ def publish_business_event(event_type: str, booking_id: str | None, payload: dic
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "HSSPlatform/1.0"
+    server_version = "HSSPlatform/2.0"
+
+    def _request_id(self) -> str:
+        return self.headers.get("X-Request-Id", "").strip() or uuid4().hex[:12]
 
     def _json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload).encode("utf-8")
@@ -111,13 +127,30 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type,X-HSS-Role,X-Request-Id")
+        self.send_header("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS")
+        self.send_header("X-Request-Id", payload.get("request_id", self._request_id()))
         self.end_headers()
         self.wfile.write(body)
+
+    def _error(self, status: int, code: str, message: str, details: list[str] | None = None) -> None:
+        payload: dict[str, Any] = {"error": {"code": code, "message": message}, "request_id": self._request_id()}
+        if details:
+            payload["error"]["details"] = details
+        self._json(status, payload)
 
     def _read_json(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length) if length else b"{}"
-        return json.loads(raw or b"{}")
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Malformed JSON payload: {exc.msg}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("JSON body must be an object")
+        return parsed
 
     def _role(self) -> str:
         role = (self.headers.get("X-HSS-Role", "customer") or "customer").strip().lower()
@@ -125,14 +158,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def _require_role(self, allowed_roles: set[str]) -> bool:
         if self._role() not in allowed_roles:
-            self._json(403, {"error": "forbidden", "required_roles": sorted(allowed_roles)})
+            self._error(403, "forbidden", "Insufficient permissions", [f"required_roles={sorted(allowed_roles)}"])
             return False
         return True
+
+    def _parse_pagination(self, parsed_query: dict[str, list[str]]) -> tuple[int, int]:
+        limit = parsed_query.get("limit", ["50"])[0]
+        offset = parsed_query.get("offset", ["0"])[0]
+        try:
+            limit_num = max(1, min(int(limit), 200))
+            offset_num = max(0, int(offset))
+        except ValueError as exc:
+            raise ValueError("limit and offset must be integers") from exc
+        return limit_num, offset_num
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(HTTPStatus.NO_CONTENT)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type,X-HSS-Role")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type,X-HSS-Role,X-Request-Id")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS")
         self.end_headers()
 
@@ -141,21 +184,30 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
 
         if path == "/health":
-            self._json(200, {"status": "ok", "service": "hss-backend", "timestamp": utc_now()})
+            self._json(200, {"status": "ok", "service": "hss-backend", "version": "2.0", "timestamp": utc_now()})
             return
 
         if path == "/api/v1/bookings":
             params = parse_qs(parsed.query)
             status_filter = params.get("status", [None])[0]
+            try:
+                limit, offset = self._parse_pagination(params)
+            except ValueError as exc:
+                self._error(400, "validation_error", str(exc))
+                return
+
             with sqlite3.connect(DB_PATH) as conn:
                 conn.row_factory = sqlite3.Row
                 if status_filter:
                     rows = conn.execute(
-                        "SELECT * FROM bookings WHERE status = ? ORDER BY created_at DESC", (status_filter,)
+                        "SELECT * FROM bookings WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                        (status_filter, limit, offset),
                     ).fetchall()
                 else:
-                    rows = conn.execute("SELECT * FROM bookings ORDER BY created_at DESC").fetchall()
-            self._json(200, {"bookings": [row_to_dict(r) for r in rows]})
+                    rows = conn.execute(
+                        "SELECT * FROM bookings ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)
+                    ).fetchall()
+            self._json(200, {"bookings": [row_to_dict(r) for r in rows], "count": len(rows), "request_id": self._request_id()})
             return
 
         if path.startswith("/api/v1/bookings/"):
@@ -167,10 +219,11 @@ class Handler(BaseHTTPRequestHandler):
                     "SELECT item_type, item_name, s3_key FROM booking_items WHERE booking_id = ?", (booking_id,)
                 ).fetchall()
             if not booking:
-                self._json(404, {"error": "Booking not found"})
+                self._error(404, "not_found", "Booking not found")
                 return
             payload = row_to_dict(booking)
             payload["items"] = [row_to_dict(i) for i in items]
+            payload["request_id"] = self._request_id()
             self._json(200, payload)
             return
 
@@ -184,7 +237,7 @@ class Handler(BaseHTTPRequestHandler):
                     f"SELECT * FROM bookings WHERE status IN ({placeholders}) ORDER BY created_at ASC",
                     STAFF_VISIBLE_STATUSES,
                 ).fetchall()
-            self._json(200, {"queue": [row_to_dict(r) for r in rows], "count": len(rows)})
+            self._json(200, {"queue": [row_to_dict(r) for r in rows], "count": len(rows), "request_id": self._request_id()})
             return
 
         if path == "/api/v1/admin/bookings":
@@ -200,7 +253,7 @@ class Handler(BaseHTTPRequestHandler):
                     ).fetchall()
                 else:
                     rows = conn.execute("SELECT * FROM bookings ORDER BY created_at DESC").fetchall()
-            self._json(200, {"bookings": [row_to_dict(r) for r in rows], "count": len(rows)})
+            self._json(200, {"bookings": [row_to_dict(r) for r in rows], "count": len(rows), "request_id": self._request_id()})
             return
 
         if path == "/api/v1/admin/overview":
@@ -223,6 +276,7 @@ class Handler(BaseHTTPRequestHandler):
                     "gross_value": totals["gross_value"],
                     "paid_revenue": totals["paid_revenue"],
                     "status_breakdown": [row_to_dict(r) for r in by_status],
+                    "request_id": self._request_id(),
                 },
             )
             return
@@ -238,30 +292,36 @@ class Handler(BaseHTTPRequestHandler):
                 item = row_to_dict(event)
                 item["payload"] = json.loads(item["payload"])
                 response.append(item)
-            self._json(200, {"events": response})
+            self._json(200, {"events": response, "request_id": self._request_id()})
             return
 
-        self._json(404, {"error": "Not found"})
+        self._error(404, "not_found", "Resource not found")
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
+        try:
+            body = self._read_json()
+        except ValueError as exc:
+            self._error(400, "validation_error", str(exc))
+            return
 
         if path == "/api/v1/auth/login":
-            body = self._read_json()
             email = (body.get("email") or "").strip().lower()
             if not email:
-                self._json(400, {"error": "email is required"})
+                self._error(400, "validation_error", "email is required")
+                return
+            if not EMAIL_RE.match(email):
+                self._error(400, "validation_error", "email is invalid")
                 return
             role = infer_role(email, body.get("role"))
             token = f"demo-{role}-{abs(hash(email)) % 1000000}"
-            self._json(200, {"token": token, "role": role, "expires_in": 3600})
+            self._json(200, {"token": token, "role": role, "expires_in": 3600, "request_id": self._request_id()})
             return
 
         if path == "/api/v1/bookings":
-            body = self._read_json()
             errors = validate_booking_payload(body)
             if errors:
-                self._json(400, {"error": "validation_error", "details": errors})
+                self._error(400, "validation_error", "Booking payload validation failed", errors)
                 return
 
             booking_id = f"HSS-{int(datetime.now().timestamp())}"
@@ -305,20 +365,22 @@ class Handler(BaseHTTPRequestHandler):
                 booking_id,
                 {"email": body["email"].strip().lower(), "item_count": len(body["items"]), "status": status},
             )
-            self._json(201, {"booking_id": booking_id, "status": status})
+            self._json(201, {"booking_id": booking_id, "status": status, "request_id": self._request_id()})
             return
 
         if path.endswith("/payment") and path.startswith("/api/v1/bookings/"):
             booking_id = path.split("/")[-2]
-            body = self._read_json()
-            method = (body.get("method") or "card").lower()
+            method = str(body.get("method") or "card").strip().lower()
+            if method not in ALLOWED_PAYMENT_METHODS:
+                self._error(400, "validation_error", "Unsupported payment method")
+                return
             with sqlite3.connect(DB_PATH) as conn:
                 row = conn.execute("SELECT status FROM bookings WHERE id = ?", (booking_id,)).fetchone()
                 if not row:
-                    self._json(404, {"error": "Booking not found"})
+                    self._error(404, "not_found", "Booking not found")
                     return
                 if row[0] != "approved":
-                    self._json(409, {"error": "Booking must be approved before payment"})
+                    self._error(409, "conflict", "Booking must be approved before payment")
                     return
                 payment_reference = f"PAY-{int(datetime.now().timestamp())}"
                 conn.execute(
@@ -331,7 +393,15 @@ class Handler(BaseHTTPRequestHandler):
                 booking_id,
                 {"method": method, "payment_reference": payment_reference, "status": "paid"},
             )
-            self._json(200, {"booking_id": booking_id, "payment_reference": payment_reference, "status": "paid"})
+            self._json(
+                200,
+                {
+                    "booking_id": booking_id,
+                    "payment_reference": payment_reference,
+                    "status": "paid",
+                    "request_id": self._request_id(),
+                },
+            )
             return
 
         if path.endswith("/approve") and path.startswith("/api/v1/staff/bookings/"):
@@ -341,10 +411,10 @@ class Handler(BaseHTTPRequestHandler):
             with sqlite3.connect(DB_PATH) as conn:
                 found = conn.execute("SELECT id, status FROM bookings WHERE id = ?", (booking_id,)).fetchone()
                 if not found:
-                    self._json(404, {"error": "Booking not found"})
+                    self._error(404, "not_found", "Booking not found")
                     return
                 if found[1] not in {"submitted", "approved"}:
-                    self._json(409, {"error": "Only submitted bookings can be approved"})
+                    self._error(409, "conflict", "Only submitted bookings can be approved")
                     return
                 conn.execute(
                     "UPDATE bookings SET status = ?, updated_at = ? WHERE id = ?",
@@ -353,37 +423,48 @@ class Handler(BaseHTTPRequestHandler):
                 actor = self._role()
                 log_event(conn, "staff_booking_approved", booking_id, {"status": "approved", "actor_role": actor})
             publish_business_event("staff_booking_approved", booking_id, {"status": "approved", "actor_role": self._role()})
-            self._json(200, {"booking_id": booking_id, "status": "approved"})
+            self._json(200, {"booking_id": booking_id, "status": "approved", "request_id": self._request_id()})
             return
 
-        self._json(404, {"error": "Not found"})
+        self._error(404, "not_found", "Resource not found")
 
     def do_PATCH(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
+        try:
+            body = self._read_json()
+        except ValueError as exc:
+            self._error(400, "validation_error", str(exc))
+            return
+
         if path.endswith("/status") and path.startswith("/api/v1/bookings/"):
             booking_id = path.split("/")[-2]
-            body = self._read_json()
             new_status = body.get("status")
-            allowed = {"submitted", "approved", "collected", "in_storage", "returned"}
-            if new_status not in allowed:
-                self._json(400, {"error": f"status must be one of {sorted(allowed)}"})
+            if new_status not in ALLOWED_STATUSES:
+                self._error(400, "validation_error", f"status must be one of {sorted(ALLOWED_STATUSES)}")
                 return
 
             with sqlite3.connect(DB_PATH) as conn:
-                found = conn.execute("SELECT id FROM bookings WHERE id = ?", (booking_id,)).fetchone()
-                if not found:
-                    self._json(404, {"error": "Booking not found"})
+                current = conn.execute("SELECT status FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+                if not current:
+                    self._error(404, "not_found", "Booking not found")
+                    return
+                old_status = current[0]
+                if new_status == old_status:
+                    self._json(200, {"booking_id": booking_id, "status": new_status, "request_id": self._request_id()})
+                    return
+                if new_status not in STATUS_TRANSITIONS.get(old_status, set()):
+                    self._error(409, "conflict", f"Invalid status transition: {old_status} -> {new_status}")
                     return
                 conn.execute(
                     "UPDATE bookings SET status = ?, updated_at = ? WHERE id = ?",
                     (new_status, utc_now(), booking_id),
                 )
-                log_event(conn, "status_updated", booking_id, {"status": new_status})
-            publish_business_event("status_updated", booking_id, {"status": new_status})
-            self._json(200, {"booking_id": booking_id, "status": new_status})
+                log_event(conn, "status_updated", booking_id, {"from": old_status, "to": new_status})
+            publish_business_event("status_updated", booking_id, {"from": old_status, "to": new_status})
+            self._json(200, {"booking_id": booking_id, "status": new_status, "request_id": self._request_id()})
             return
 
-        self._json(404, {"error": "Not found"})
+        self._error(404, "not_found", "Resource not found")
 
 
 def validate_booking_payload(payload: dict[str, Any]) -> list[str]:
@@ -393,17 +474,38 @@ def validate_booking_payload(payload: dict[str, Any]) -> list[str]:
         if field not in payload:
             errors.append(f"{field} is required")
 
-    if "items" in payload and (not isinstance(payload["items"], list) or len(payload["items"]) < 1):
-        errors.append("items must contain at least one entry")
+    customer_name = str(payload.get("customer_name", "")).strip()
+    if customer_name and len(customer_name) < 2:
+        errors.append("customer_name must be at least 2 characters")
 
-    if "email" in payload and "@" not in str(payload["email"]):
+    email = str(payload.get("email", "")).strip().lower()
+    if email and not EMAIL_RE.match(email):
         errors.append("email is invalid")
+
+    if "items" in payload:
+        items = payload["items"]
+        if not isinstance(items, list) or len(items) < 1:
+            errors.append("items must contain at least one entry")
+        else:
+            valid_item_types = {"bed", "fridge", "box", "suitcase", "other"}
+            for idx, item in enumerate(items, start=1):
+                if not isinstance(item, dict):
+                    errors.append(f"items[{idx}] must be an object")
+                    continue
+                item_type = item.get("type")
+                if item_type not in valid_item_types:
+                    errors.append(f"items[{idx}].type must be one of {sorted(valid_item_types)}")
 
     pricing = payload.get("pricing", {})
     if pricing:
         for field in ["duration", "monthlySubtotal", "handlingFee", "total"]:
             if field not in pricing:
                 errors.append(f"pricing.{field} is required")
+        try:
+            if int(pricing.get("duration", 0)) < 1:
+                errors.append("pricing.duration must be >= 1")
+        except (TypeError, ValueError):
+            errors.append("pricing.duration must be a number")
 
     return errors
 
