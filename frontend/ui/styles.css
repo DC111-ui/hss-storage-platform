@@ -267,6 +267,25 @@ fieldset {
   opacity: 0.55;
 }
 
+
+.btn[data-loading="true"] {
+  position: relative;
+  color: transparent;
+}
+
+.btn[data-loading="true"]::after {
+  content: "Working...";
+  color: #ffffff;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.btn-secondary[data-loading="true"]::after {
+  color: #173554;
+}
+
 .btn-primary {
   background: linear-gradient(120deg, #1e5494, #0f3f78);
   color: #fff;
